@@ -1,4 +1,6 @@
 import type { AccessRequest } from "@/lib/access-store";
+import { normalizeChildDrafts } from "@/lib/multi-child";
+import { getEmailConfig, SUPPORT_EMAIL } from "./email-config";
 
 export type LoginInstructions = {
   loginUrl: string;
@@ -8,15 +10,46 @@ export type LoginInstructions = {
   children: string[];
 };
 
+export type ApprovalLoginInstructionsInput = {
+  parentName: string;
+  loginId: string;
+  tempPin: string;
+  plan: string;
+  children: string[];
+  loginUrl: string;
+};
+
 export function buildLoginInstructions(request: AccessRequest): LoginInstructions {
-  const baseUrl = process.env.APP_BASE_URL || "https://conceptkid.in";
+  const config = getEmailConfig();
+  const children = normalizeChildDrafts(request.submittedChildren);
   return {
-    loginUrl: `${baseUrl.replace(/\/$/, "")}/login`,
+    loginUrl: `${config.appBaseUrl.replace(/\/$/, "")}/login`,
     loginIdentifier: request.email || request.mobile,
     temporaryPin: request.tempPin || "",
     planLabel: request.status === "trial" ? "Trial" : request.status === "active" ? "Full Access" : request.plan,
-    children: [`${request.childName} - ${request.grade} - ${request.board}`],
+    children: children.length
+      ? children.map((child) => `${child.childName} - ${child.grade} - ${child.board}`)
+      : [`${request.childName} - ${request.grade} - ${request.board}`],
   };
+}
+
+export function approvalLoginInstructionsEmail(input: ApprovalLoginInstructionsInput) {
+  const subject = "ConceptKid access approved - login instructions";
+  const text = approvalEmailText(input.parentName, {
+    loginUrl: input.loginUrl,
+    loginIdentifier: input.loginId,
+    temporaryPin: input.tempPin,
+    planLabel: input.plan,
+    children: input.children,
+  });
+  const html = approvalEmailHtml(input.parentName, {
+    loginUrl: input.loginUrl,
+    loginIdentifier: input.loginId,
+    temporaryPin: input.tempPin,
+    planLabel: input.plan,
+    children: input.children,
+  });
+  return { subject, text, html };
 }
 
 export function approvalEmailSubject() {
@@ -55,6 +88,9 @@ Next steps:
 Important:
 Textbooks from official sources may be imported automatically where available. For private publisher or school-provided textbooks, the parent must upload the textbook PDF, scanned pages, or chapter photos after login.
 
+Need help?
+Contact ${SUPPORT_EMAIL}
+
 Regards,
 ConceptKid Team`;
 }
@@ -81,6 +117,7 @@ export function approvalEmailHtml(parentName: string, instructions: LoginInstruc
         <li>Start learning.</li>
       </ol>
       <p><strong>Important:</strong> Textbooks from official sources may be imported automatically where available. For private publisher or school-provided textbooks, the parent must upload the textbook PDF, scanned pages, or chapter photos after login.</p>
+      <p><strong>Need help?</strong><br/>Contact <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></p>
       <p>Regards,<br/>ConceptKid Team</p>
     </div>
   `;

@@ -38,6 +38,9 @@ export function DemoPage() {
             <p className="mt-5 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
               Select your child&apos;s class, subject, chapter, and topic. ConceptKid will show a limited visual learning preview with audio narration.
             </p>
+            <p className="mt-4 rounded-2xl bg-purple-50 px-4 py-3 text-sm font-bold leading-6 text-purple-800">
+              Want help choosing class, subject, or textbook setup? Contact support@conceptkid.in.
+            </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <a href="#visual-demo" className="rounded-2xl bg-purple-600 px-5 py-3 font-black text-white shadow-sm">Generate Visual Demo</a>
               <Link href="/register" className="rounded-2xl bg-blue-50 px-5 py-3 font-black text-blue-700">Register for Access</Link>

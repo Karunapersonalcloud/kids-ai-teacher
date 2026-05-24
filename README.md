@@ -87,9 +87,9 @@ PERSISTENCE_PROVIDER=json
 ADMIN_EMAIL=
 ADMIN_PIN=
 ADMIN_NAME=
-EMAIL_PROVIDER=resend
+EMAIL_PROVIDER=
 RESEND_API_KEY=
-EMAIL_FROM=
+EMAIL_FROM=ConceptKid Support <support@conceptkid.in>
 APP_BASE_URL=https://conceptkid.in
 ```
 
@@ -119,15 +119,15 @@ GOOGLE_DRIVE_FOLDER_ID=15KLTJUjUCNrcNrYUVGRw94Q2ZmnyPXIF
 ADMIN_EMAIL=
 ADMIN_PIN=
 ADMIN_NAME=ConceptKid Admin
-EMAIL_PROVIDER=resend
+EMAIL_PROVIDER=
 RESEND_API_KEY=
-EMAIL_FROM=ConceptKid <no-reply@conceptkid.in>
+EMAIL_FROM=ConceptKid Support <support@conceptkid.in>
 APP_BASE_URL=https://conceptkid.in
 ```
 
 `OPENAI_API_KEY` and `GOOGLE_DRIVE_API_KEY` are optional until those integrations are enabled for production traffic.
 
-Approval emails use Resend when configured. If `RESEND_API_KEY` or `EMAIL_FROM` is missing, approval still succeeds and the admin can use **Copy Login Instructions** manually. For development, `EMAIL_FROM=ConceptKid <onboarding@resend.dev>` can be used; for production, verify the `conceptkid.in` sender/domain in Resend first.
+Approval email templates are prepared, but sending is currently in safe placeholder mode. If `EMAIL_PROVIDER` is missing, approval still succeeds and the admin can use **Copy Login Instructions** manually. The public support mailbox is `support@conceptkid.in`.
 
 For production, use durable services:
 

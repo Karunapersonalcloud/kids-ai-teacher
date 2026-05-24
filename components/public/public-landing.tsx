@@ -81,6 +81,10 @@ export function PublicLanding() {
             ))}
           </div>
         </div>
+
+        <footer className="mt-8 rounded-3xl bg-white p-5 text-center text-sm font-bold text-slate-600 shadow-sm">
+          Need help? Contact us at <a href="mailto:support@conceptkid.in" className="text-purple-700 hover:underline">support@conceptkid.in</a>
+        </footer>
       </section>
     </main>
   );

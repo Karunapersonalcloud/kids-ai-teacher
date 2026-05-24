@@ -29,9 +29,9 @@ SESSION_SECRET=
 ADMIN_EMAIL=
 ADMIN_PIN=
 ADMIN_NAME=ConceptKid Admin
-EMAIL_PROVIDER=resend
+EMAIL_PROVIDER=
 RESEND_API_KEY=
-EMAIL_FROM=ConceptKid <no-reply@conceptkid.in>
+EMAIL_FROM=ConceptKid Support <support@conceptkid.in>
 APP_BASE_URL=https://conceptkid.in
 ```
 
@@ -81,12 +81,12 @@ The app also has `postinstall: prisma generate`, so Prisma Client is generated d
 2. Submit a test registration.
 3. Open `/admin` as Family Admin.
 4. Approve the test user.
-5. Confirm the temporary PIN appears and the approval email status says sent.
+5. Confirm the temporary PIN appears and, while email sending is not configured, the admin panel asks you to use Copy Login Instructions.
 6. Login at `/login`.
 7. Confirm first login redirects to `/change-credentials`.
 8. Confirm AI usage/progress updates are saved.
 
-If email is not configured, approval still works. The admin panel will show that email was not sent and you can use **Copy Login Instructions** as the fallback. Resend requires sender/domain verification before sending real production mail from `conceptkid.in`; for development you can use `EMAIL_FROM=ConceptKid <onboarding@resend.dev>`.
+If email is not configured, approval still works. The admin panel will show that email was not sent and you can use **Copy Login Instructions** as the fallback. The prepared support sender is `ConceptKid Support <support@conceptkid.in>`. Add a real provider later after domain verification.
 
 ## 6. Remaining Production Work
 

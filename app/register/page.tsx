@@ -98,6 +98,9 @@ export default function RegisterPage() {
           <p className="mt-2 text-slate-600">
             Add your details and one or more children. Access is enabled after admin approval. You can register multiple children in one go — each can have their own grade, board, subjects, and books.
           </p>
+          <p className="mt-3 rounded-2xl bg-purple-50 px-4 py-3 text-sm font-semibold leading-6 text-purple-800">
+            After registration, your access will be reviewed by the ConceptKid team. Once approved, login instructions will be shared. For help, contact support@conceptkid.in.
+          </p>
         </header>
 
         <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">

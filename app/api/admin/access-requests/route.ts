@@ -49,10 +49,16 @@ export async function PATCH(request: Request) {
       loginEmailError: emailResult.error || "",
     };
     const requestWithEmailStatus = (await updateAccessRequest(body.id, emailPatch)) || updated;
+    const emailStatus = emailResult.sent
+      ? "Login instructions emailed."
+      : emailResult.status === "not_configured"
+        ? "Email provider not configured. Use Copy Login Instructions."
+        : emailResult.error || "Email is not active yet. Use Copy Login Instructions.";
     return Response.json({
       request: requestWithEmailStatus,
       emailSent: emailResult.sent,
       emailError: emailResult.error,
+      emailStatus,
       loginInstructions: buildLoginInstructions(updated),
       message: emailResult.sent ? "Approved and login instructions emailed." : "Approved, but email not sent. Use Copy Login Instructions.",
     });

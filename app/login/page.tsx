@@ -40,6 +40,9 @@ export default function LoginPage() {
         <Link href="/" className="text-sm font-black text-purple-700">← Back</Link>
         <h1 className="mt-4 text-3xl font-black text-purple-800">Parent Login</h1>
         <p className="mt-2 text-sm font-semibold text-slate-500">Admin and approved parents can login using their registered email/mobile and PIN.</p>
+        <p className="mt-3 rounded-2xl bg-purple-50 px-4 py-3 text-sm font-bold leading-6 text-purple-800">
+          Forgot your PIN or waiting for approval? Contact support@conceptkid.in.
+        </p>
         {showLocalAdmin && (
           <div className="mt-5 rounded-2xl bg-amber-50 p-4">
             <div className="flex items-center justify-between gap-3">

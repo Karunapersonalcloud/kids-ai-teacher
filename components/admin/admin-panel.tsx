@@ -31,9 +31,9 @@ export function AdminPanel() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, action: nextAction }),
     });
-    const data = (await response.json()) as { message?: string; emailSent?: boolean; emailError?: string; error?: string };
+    const data = (await response.json()) as { message?: string; emailSent?: boolean; emailStatus?: string; emailError?: string; error?: string };
     if (response.ok && (nextAction === "approve-trial" || nextAction === "approve-full")) {
-      setMessage(data.emailSent ? "Approved and login instructions emailed." : data.emailError || "Approved, but email not sent. Use Copy Login Instructions.");
+      setMessage(data.emailSent ? "Approved and login instructions emailed." : data.emailStatus || data.emailError || "Approved. Email is not configured yet. Use Copy Login Instructions.");
     } else {
       setMessage(response.ok ? data.message || "Access updated." : data.error || "Could not update access.");
     }
@@ -59,6 +59,7 @@ Please login and change your PIN on first login.`;
       <section className="mb-5 rounded-3xl bg-white p-6 shadow-sm">
         <h1 className="text-3xl font-black text-purple-800">Admin Approval Panel</h1>
         <p className="mt-2 font-semibold text-slate-500">Approve trials, enable full access, block users, set expiry, and manage limits.</p>
+        <p className="mt-2 text-sm font-bold text-slate-500">Need help? Contact us at support@conceptkid.in</p>
         <div className="mt-4 rounded-2xl bg-purple-50 p-3 text-sm font-bold text-purple-700">{message}</div>
       </section>
 
