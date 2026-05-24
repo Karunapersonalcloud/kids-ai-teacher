@@ -1,6 +1,8 @@
 import { randomUUID } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
+import { prisma } from "./db";
+import { isPostgresEnabled } from "./persistence-provider";
 import type { PlanName } from "./billing-types";
 import type { AccessStatus, UserRole } from "./access-control";
 
@@ -95,6 +97,19 @@ const seedRequests: AccessRequest[] = [
 ];
 
 export async function readAccessRequests(): Promise<AccessRequest[]> {
+  if (isPostgresEnabled()) {
+    await ensurePostgresFamilyAdmin();
+    const [users, requests] = await Promise.all([
+      prisma.user.findMany({ orderBy: { createdAt: "desc" } }),
+      prisma.accessRequest.findMany({ orderBy: { createdAt: "desc" } }),
+    ]);
+    const requestUserIds = new Set(requests.map((request) => request.userId).filter(Boolean));
+    return [
+      ...users.filter((user) => !requestUserIds.has(user.id)).map(accessFromUser),
+      ...requests.map(accessFromRequest),
+    ];
+  }
+
   try {
     await fs.mkdir(accessRoot, { recursive: true });
     const raw = await fs.readFile(accessPath, "utf8");
@@ -109,6 +124,11 @@ export async function readAccessRequests(): Promise<AccessRequest[]> {
 }
 
 export async function writeAccessRequests(requests: AccessRequest[]) {
+  if (isPostgresEnabled()) {
+    await Promise.all(requests.map((request) => upsertPostgresAccess(request)));
+    return;
+  }
+
   await fs.mkdir(accessRoot, { recursive: true });
   await fs.writeFile(accessPath, JSON.stringify(mergeSeed(requests), null, 2), "utf8");
 }
@@ -119,6 +139,50 @@ export async function createAccessRequest(
     "parentName" | "email" | "mobile" | "city" | "preferredLanguage" | "childName" | "grade" | "board" | "explanationLanguage" | "weakSubjects" | "learningGoal"
   >
 ) {
+  if (isPostgresEnabled()) {
+    const now = new Date();
+    const record = await prisma.accessRequest.upsert({
+      where: { email: input.email },
+      update: {
+        parentName: input.parentName,
+        mobile: input.mobile,
+        city: input.city,
+        preferredLanguage: input.preferredLanguage,
+        childName: input.childName,
+        grade: input.grade,
+        board: input.board,
+        preferredExplanationLanguage: input.explanationLanguage,
+        weakSubjects: input.weakSubjects,
+        learningGoal: input.learningGoal,
+        status: "pending",
+        plan: "demo",
+        loginIdentifier: input.email,
+        mustChangeCredentials: false,
+        updatedAt: now,
+      },
+      create: {
+        parentName: input.parentName,
+        email: input.email,
+        mobile: input.mobile,
+        city: input.city,
+        preferredLanguage: input.preferredLanguage,
+        childName: input.childName,
+        grade: input.grade,
+        board: input.board,
+        preferredExplanationLanguage: input.explanationLanguage,
+        weakSubjects: input.weakSubjects,
+        learningGoal: input.learningGoal,
+        status: "pending",
+        role: "parent",
+        userType: "externalUser",
+        plan: "demo",
+        loginIdentifier: input.email,
+        mustChangeCredentials: false,
+      },
+    });
+    return accessFromRequest(record);
+  }
+
   const now = new Date().toISOString();
   const record: AccessRequest = {
     ...input,
@@ -151,6 +215,40 @@ export async function createAccessRequest(
 }
 
 export async function updateAccessRequest(id: string, patch: Partial<AccessRequest>) {
+  if (isPostgresEnabled()) {
+    await ensurePostgresFamilyAdmin();
+    if (id === "family-admin") {
+      const user = await prisma.user.update({ where: { id }, data: userPatchToPrisma(patch) });
+      return accessFromUser(user);
+    }
+
+    const existing = await prisma.accessRequest.findUnique({ where: { id } });
+    if (!existing) return undefined;
+
+    const updated = await prisma.accessRequest.update({
+      where: { id },
+      data: requestPatchToPrisma(patch),
+    });
+
+    if (updated.status === "trial" || updated.status === "active") {
+      const user = await upsertApprovedUser(updated);
+      await prisma.accessRequest.update({ where: { id }, data: { userId: user.id } });
+      await prisma.adminAction.create({
+        data: {
+          adminUserId: "family-admin",
+          targetUserId: user.id,
+          targetRequestId: id,
+          action: `set-${updated.status}`,
+          notes: updated.adminNotes,
+          metadata: { plan: updated.plan, dailyAiLimit: updated.dailyAiLimit },
+        },
+      });
+      return accessFromRequest(updated);
+    }
+
+    return accessFromRequest(updated);
+  }
+
   const requests = await readAccessRequests();
   const next = requests.map((request) => (request.id === id ? { ...request, ...patch, updatedAt: new Date().toISOString() } : request));
   await writeAccessRequests(next);
@@ -158,14 +256,435 @@ export async function updateAccessRequest(id: string, patch: Partial<AccessReque
 }
 
 export async function findAccessByEmail(email: string) {
+  if (isPostgresEnabled()) {
+    await ensurePostgresFamilyAdmin();
+    const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
+    if (user) return accessFromUser(user);
+    const request = await prisma.accessRequest.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
+    return request ? accessFromRequest(request) : undefined;
+  }
+
   const requests = await readAccessRequests();
   return requests.find((request) => request.email.toLowerCase() === email.toLowerCase());
 }
 
 export async function findAccessByIdentifier(identifier: string) {
+  if (isPostgresEnabled()) {
+    await ensurePostgresFamilyAdmin();
+    const normalized = identifier.toLowerCase();
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: { equals: normalized, mode: "insensitive" } },
+          { mobile: identifier },
+          { loginIdentifier: { equals: normalized, mode: "insensitive" } },
+        ],
+      },
+    });
+    if (user) return accessFromUser(user);
+    const request = await prisma.accessRequest.findFirst({
+      where: {
+        OR: [
+          { email: { equals: normalized, mode: "insensitive" } },
+          { mobile: identifier },
+          { loginIdentifier: { equals: normalized, mode: "insensitive" } },
+        ],
+      },
+    });
+    return request ? accessFromRequest(request) : undefined;
+  }
+
   const normalized = identifier.toLowerCase();
   const requests = await readAccessRequests();
   return requests.find((request) => request.email.toLowerCase() === normalized || request.mobile === identifier || request.loginIdentifier.toLowerCase() === normalized);
+}
+
+function optionalDate(value?: string | Date | null) {
+  if (!value) return undefined;
+  return value instanceof Date ? value : new Date(value);
+}
+
+function isoDate(value?: Date | string | null) {
+  if (!value) return undefined;
+  return value instanceof Date ? value.toISOString() : value;
+}
+
+function accessFromUser(user: {
+  id: string;
+  name: string;
+  email: string | null;
+  mobile: string | null;
+  role: string;
+  userType: string;
+  status: string;
+  plan: string;
+  loginIdentifier: string | null;
+  credentialHash: string | null;
+  tempPin: string | null;
+  mustChangeCredentials: boolean;
+  approvedAt: Date | null;
+  approvedBy: string | null;
+  lastLoginAt: Date | null;
+  canDownloadMaterials: boolean;
+  canUploadMaterials: boolean;
+  canUseAI: boolean;
+  canUseOCR: boolean;
+  canImportFromDrive: boolean;
+  canIndexMaterials: boolean;
+  dailyAiLimit: number;
+  uploadLimit: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): AccessRequest {
+  return migrateAccessRequest({
+    id: user.id,
+    parentName: user.name,
+    email: user.email || "",
+    mobile: user.mobile || "",
+    childName: user.userType === "internalFamily" ? "Jayadeep and Harini" : "",
+    grade: user.userType === "internalFamily" ? "Family" : "",
+    status: user.status as Exclude<AccessStatus, "guest">,
+    role: user.role as UserRole,
+    userType: user.userType as UserType,
+    plan: user.plan as PlanName,
+    loginIdentifier: user.loginIdentifier || user.email || user.mobile || "",
+    credentialHash: user.credentialHash || undefined,
+    tempPin: user.tempPin || undefined,
+    mustChangeCredentials: user.mustChangeCredentials,
+    approvedAt: isoDate(user.approvedAt),
+    approvedBy: user.approvedBy || undefined,
+    lastLoginAt: isoDate(user.lastLoginAt),
+    canDownloadMaterials: user.canDownloadMaterials,
+    canUploadMaterials: user.canUploadMaterials,
+    canUseAI: user.canUseAI,
+    canUseOCR: user.canUseOCR,
+    canImportFromDrive: user.canImportFromDrive,
+    canIndexMaterials: user.canIndexMaterials,
+    dailyAiLimit: user.dailyAiLimit,
+    uploadLimit: user.uploadLimit,
+    createdAt: isoDate(user.createdAt),
+    updatedAt: isoDate(user.updatedAt),
+  });
+}
+
+function accessFromRequest(request: {
+  id: string;
+  parentName: string;
+  email: string;
+  mobile: string;
+  city: string | null;
+  preferredLanguage: string | null;
+  childName: string;
+  grade: string;
+  board: string | null;
+  preferredExplanationLanguage: string | null;
+  weakSubjects: string | null;
+  learningGoal: string | null;
+  status: string;
+  role: string;
+  userType: string;
+  plan: string;
+  loginIdentifier: string | null;
+  credentialHash: string | null;
+  tempPin: string | null;
+  mustChangeCredentials: boolean;
+  tempCredentialsIssuedAt: Date | null;
+  approvedAt: Date | null;
+  approvedBy: string | null;
+  lastLoginAt: Date | null;
+  canDownloadMaterials: boolean;
+  canUploadMaterials: boolean;
+  canUseAI: boolean;
+  canUseOCR: boolean;
+  canImportFromDrive: boolean;
+  canIndexMaterials: boolean;
+  maxChildren: number;
+  dailyAiLimit: number;
+  uploadLimit: number;
+  ocrLimit: number;
+  visualLessonLimit: number;
+  quizGenerationLimit: number;
+  expiryDate: Date | null;
+  adminNotes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): AccessRequest {
+  return migrateAccessRequest({
+    id: request.id,
+    parentName: request.parentName,
+    email: request.email,
+    mobile: request.mobile,
+    city: request.city || "",
+    preferredLanguage: request.preferredLanguage || "English",
+    childName: request.childName,
+    grade: request.grade,
+    board: (request.board || "CBSE") as AccessRequest["board"],
+    explanationLanguage: request.preferredExplanationLanguage || "English",
+    weakSubjects: request.weakSubjects || "",
+    learningGoal: request.learningGoal || "",
+    status: request.status as Exclude<AccessStatus, "guest">,
+    role: request.role as UserRole,
+    userType: request.userType as UserType,
+    plan: request.plan as PlanName,
+    loginIdentifier: request.loginIdentifier || request.email || request.mobile,
+    credentialHash: request.credentialHash || undefined,
+    tempPin: request.tempPin || undefined,
+    mustChangeCredentials: request.mustChangeCredentials,
+    tempCredentialsIssuedAt: isoDate(request.tempCredentialsIssuedAt),
+    approvedAt: isoDate(request.approvedAt),
+    approvedBy: request.approvedBy || undefined,
+    lastLoginAt: isoDate(request.lastLoginAt),
+    canDownloadMaterials: request.canDownloadMaterials,
+    canUploadMaterials: request.canUploadMaterials,
+    canUseAI: request.canUseAI,
+    canUseOCR: request.canUseOCR,
+    canImportFromDrive: request.canImportFromDrive,
+    canIndexMaterials: request.canIndexMaterials,
+    maxChildren: request.maxChildren,
+    dailyAiLimit: request.dailyAiLimit,
+    uploadLimit: request.uploadLimit,
+    ocrLimit: request.ocrLimit,
+    visualLessonLimit: request.visualLessonLimit,
+    quizGenerationLimit: request.quizGenerationLimit,
+    expiryDate: isoDate(request.expiryDate),
+    notes: request.adminNotes || "",
+    createdAt: isoDate(request.createdAt),
+    updatedAt: isoDate(request.updatedAt),
+  });
+}
+
+function requestPatchToPrisma(patch: Partial<AccessRequest>) {
+  return {
+    status: patch.status,
+    role: patch.role,
+    userType: patch.userType,
+    plan: patch.plan,
+    loginIdentifier: patch.loginIdentifier,
+    credentialHash: patch.credentialHash,
+    tempPin: patch.tempPin,
+    mustChangeCredentials: patch.mustChangeCredentials,
+    tempCredentialsIssuedAt: optionalDate(patch.tempCredentialsIssuedAt),
+    approvedAt: optionalDate(patch.approvedAt),
+    approvedBy: patch.approvedBy,
+    lastLoginAt: optionalDate(patch.lastLoginAt),
+    expiryDate: optionalDate(patch.expiryDate),
+    adminNotes: patch.notes,
+    canDownloadMaterials: patch.canDownloadMaterials,
+    canUploadMaterials: patch.canUploadMaterials,
+    canUseAI: patch.canUseAI,
+    canUseOCR: patch.canUseOCR,
+    canImportFromDrive: patch.canImportFromDrive,
+    canIndexMaterials: patch.canIndexMaterials,
+    maxChildren: patch.maxChildren,
+    dailyAiLimit: patch.dailyAiLimit,
+    uploadLimit: patch.uploadLimit,
+    ocrLimit: patch.ocrLimit,
+    visualLessonLimit: patch.visualLessonLimit,
+    quizGenerationLimit: patch.quizGenerationLimit,
+  };
+}
+
+function userPatchToPrisma(patch: Partial<AccessRequest>) {
+  return {
+    status: patch.status,
+    role: patch.role,
+    userType: patch.userType,
+    plan: patch.plan,
+    loginIdentifier: patch.loginIdentifier,
+    credentialHash: patch.credentialHash,
+    tempPin: patch.tempPin,
+    mustChangeCredentials: patch.mustChangeCredentials,
+    approvedAt: optionalDate(patch.approvedAt),
+    approvedBy: patch.approvedBy,
+    lastLoginAt: optionalDate(patch.lastLoginAt),
+    canDownloadMaterials: patch.canDownloadMaterials,
+    canUploadMaterials: patch.canUploadMaterials,
+    canUseAI: patch.canUseAI,
+    canUseOCR: patch.canUseOCR,
+    canImportFromDrive: patch.canImportFromDrive,
+    canIndexMaterials: patch.canIndexMaterials,
+    dailyAiLimit: patch.dailyAiLimit,
+    uploadLimit: patch.uploadLimit,
+  };
+}
+
+async function ensurePostgresFamilyAdmin() {
+  await prisma.user.upsert({
+    where: { id: "family-admin" },
+    update: {},
+    create: {
+      id: "family-admin",
+      email: "admin@kids-ai-teacher.local",
+      name: "Family Admin",
+      role: "admin",
+      userType: "internalFamily",
+      status: "active",
+      plan: "family",
+      loginIdentifier: "admin@kids-ai-teacher.local",
+      credentialHash: "000000",
+      mustChangeCredentials: false,
+      approvedAt: new Date(),
+      approvedBy: "system",
+      canDownloadMaterials: true,
+      canUploadMaterials: true,
+      canUseAI: true,
+      canUseOCR: true,
+      canImportFromDrive: true,
+      canIndexMaterials: true,
+      dailyAiLimit: 500,
+      uploadLimit: 500,
+    },
+  });
+}
+
+async function upsertPostgresAccess(request: AccessRequest) {
+  if (request.id === "family-admin" || request.role === "admin") {
+    await prisma.user.upsert({
+      where: { id: request.id },
+      update: userPatchToPrisma(request),
+      create: {
+        id: request.id,
+        email: request.email || null,
+        mobile: request.mobile || null,
+        name: request.parentName,
+        role: request.role,
+        userType: request.userType,
+        status: request.status,
+        plan: request.plan,
+        loginIdentifier: request.loginIdentifier,
+        credentialHash: request.credentialHash,
+        tempPin: request.tempPin,
+        mustChangeCredentials: request.mustChangeCredentials,
+        approvedAt: optionalDate(request.approvedAt),
+        approvedBy: request.approvedBy,
+        lastLoginAt: optionalDate(request.lastLoginAt),
+        dailyAiLimit: request.dailyAiLimit,
+        uploadLimit: request.uploadLimit,
+        canDownloadMaterials: request.canDownloadMaterials,
+        canUploadMaterials: request.canUploadMaterials,
+        canUseAI: request.canUseAI,
+        canUseOCR: request.canUseOCR,
+        canImportFromDrive: request.canImportFromDrive,
+        canIndexMaterials: request.canIndexMaterials,
+      },
+    });
+    return;
+  }
+
+  await prisma.accessRequest.upsert({
+    where: { id: request.id },
+    update: requestPatchToPrisma(request),
+    create: {
+      id: request.id,
+      parentName: request.parentName,
+      email: request.email,
+      mobile: request.mobile,
+      city: request.city,
+      preferredLanguage: request.preferredLanguage,
+      childName: request.childName,
+      grade: request.grade,
+      board: request.board,
+      preferredExplanationLanguage: request.explanationLanguage,
+      weakSubjects: request.weakSubjects,
+      learningGoal: request.learningGoal,
+      status: request.status,
+      role: request.role,
+      userType: request.userType,
+      plan: request.plan,
+      loginIdentifier: request.loginIdentifier,
+      credentialHash: request.credentialHash,
+      tempPin: request.tempPin,
+      mustChangeCredentials: request.mustChangeCredentials,
+      tempCredentialsIssuedAt: optionalDate(request.tempCredentialsIssuedAt),
+      approvedAt: optionalDate(request.approvedAt),
+      approvedBy: request.approvedBy,
+      lastLoginAt: optionalDate(request.lastLoginAt),
+      expiryDate: optionalDate(request.expiryDate),
+      adminNotes: request.notes,
+      canDownloadMaterials: request.canDownloadMaterials,
+      canUploadMaterials: request.canUploadMaterials,
+      canUseAI: request.canUseAI,
+      canUseOCR: request.canUseOCR,
+      canImportFromDrive: request.canImportFromDrive,
+      canIndexMaterials: request.canIndexMaterials,
+      maxChildren: request.maxChildren,
+      dailyAiLimit: request.dailyAiLimit,
+      uploadLimit: request.uploadLimit,
+      ocrLimit: request.ocrLimit,
+      visualLessonLimit: request.visualLessonLimit,
+      quizGenerationLimit: request.quizGenerationLimit,
+    },
+  });
+}
+
+async function upsertApprovedUser(request: Awaited<ReturnType<typeof prisma.accessRequest.findUnique>> & {}) {
+  if (!request) throw new Error("Missing access request.");
+  const user = await prisma.user.upsert({
+    where: { email: request.email },
+    update: {
+      name: request.parentName,
+      mobile: request.mobile || null,
+      role: request.role,
+      userType: request.userType,
+      status: request.status,
+      plan: request.plan,
+      loginIdentifier: request.loginIdentifier || request.email,
+      credentialHash: request.credentialHash,
+      tempPin: request.tempPin,
+      mustChangeCredentials: request.mustChangeCredentials,
+      approvedAt: request.approvedAt,
+      approvedBy: request.approvedBy,
+      dailyAiLimit: request.dailyAiLimit,
+      uploadLimit: request.uploadLimit,
+      canDownloadMaterials: request.canDownloadMaterials,
+      canUploadMaterials: request.canUploadMaterials,
+      canUseAI: request.canUseAI,
+      canUseOCR: request.canUseOCR,
+      canImportFromDrive: request.canImportFromDrive,
+      canIndexMaterials: request.canIndexMaterials,
+    },
+    create: {
+      email: request.email,
+      mobile: request.mobile || null,
+      name: request.parentName,
+      role: request.role,
+      userType: request.userType,
+      status: request.status,
+      plan: request.plan,
+      loginIdentifier: request.loginIdentifier || request.email,
+      credentialHash: request.credentialHash,
+      tempPin: request.tempPin,
+      mustChangeCredentials: request.mustChangeCredentials,
+      approvedAt: request.approvedAt,
+      approvedBy: request.approvedBy,
+      dailyAiLimit: request.dailyAiLimit,
+      uploadLimit: request.uploadLimit,
+      canDownloadMaterials: request.canDownloadMaterials,
+      canUploadMaterials: request.canUploadMaterials,
+      canUseAI: request.canUseAI,
+      canUseOCR: request.canUseOCR,
+      canImportFromDrive: request.canImportFromDrive,
+      canIndexMaterials: request.canIndexMaterials,
+    },
+  });
+
+  const existingChild = await prisma.child.findFirst({ where: { userId: user.id, name: request.childName } });
+  if (!existingChild) {
+    await prisma.child.create({
+      data: {
+        userId: user.id,
+        name: request.childName,
+        grade: request.grade,
+        classNumber: request.classNumber,
+        board: request.board,
+        preferredLanguage: request.preferredExplanationLanguage,
+        weakSubjects: request.weakSubjects,
+        learningGoal: request.learningGoal,
+      },
+    });
+  }
+
+  return user;
 }
 
 export function generateTemporaryPin() {

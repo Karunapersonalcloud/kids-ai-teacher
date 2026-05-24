@@ -1,6 +1,6 @@
 # Kids AI Teacher / ConceptKid
 
-ConceptKid is a kid-friendly AI learning MVP built with Next.js, Tailwind CSS, and local development storage. It is designed as a controlled AI private teacher for children, with public demo access, parent/admin approval, AI learning tools, textbook ingestion, and progress tracking.
+ConceptKid is a kid-friendly AI learning MVP built with Next.js, Tailwind CSS, Prisma, and PostgreSQL-ready persistence. It is designed as a controlled AI private teacher for children, with public demo access, parent/admin approval, AI learning tools, textbook ingestion, and progress tracking.
 
 ## Current Features
 
@@ -13,7 +13,7 @@ ConceptKid is a kid-friendly AI learning MVP built with Next.js, Tailwind CSS, a
 - NCERT and local textbook support
 - Quiz generation and progress tracking
 - Parent dashboard and AI review
-- Local JSON-based access, usage, upload, and progress stores
+- PostgreSQL/Prisma persistence with local JSON fallback
 
 ## Local Setup
 
@@ -47,6 +47,26 @@ http://localhost:3000
 npm run build
 ```
 
+## Prisma / PostgreSQL
+
+Generate Prisma Client:
+
+```bash
+npm run prisma:generate
+```
+
+Run migrations against a configured PostgreSQL database:
+
+```bash
+npm run prisma:deploy
+```
+
+Seed the internal family admin and children:
+
+```bash
+npm run db:seed
+```
+
 ## Environment Variables
 
 ```env
@@ -70,7 +90,16 @@ Never commit `.env.local` or real API keys.
 
 ## Storage Warning
 
-The current MVP uses local JSON files and local filesystem storage under `storage/`. This is for local development only.
+The app can run in JSON fallback mode or PostgreSQL mode.
+
+JSON mode uses local files under `storage/`. This is for local development only.
+
+PostgreSQL mode stores critical access, usage, progress, upload metadata, quiz results, and indexed chunks through Prisma. Set:
+
+```env
+PERSISTENCE_PROVIDER=postgres
+DATABASE_URL=
+```
 
 For production, use durable services:
 
@@ -81,9 +110,11 @@ For production, use durable services:
 
 ## Deployment Plan
 
-The domain `conceptkid.in` has been purchased. Vercel deployment is planned.
+The live domain is `https://conceptkid.in`, with Vercel deployment planned/active.
 
-Before production deployment, replace local JSON/storage mode with PostgreSQL and cloud storage. Local filesystem persistence is not suitable for serverless hosting.
+Before inviting real users, enable PostgreSQL mode and use cloud storage for original uploaded files. Local filesystem persistence is not suitable for serverless hosting.
+
+See [docs/production-vercel-neon.md](docs/production-vercel-neon.md) for the Neon + Vercel setup.
 
 ## Useful Commands
 
@@ -91,4 +122,7 @@ Before production deployment, replace local JSON/storage mode with PostgreSQL an
 npm run dev
 npm run lint
 npm run build
+npm run prisma:generate
+npm run prisma:deploy
+npm run db:seed
 ```

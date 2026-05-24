@@ -1,0 +1,296 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  email                 String?   @unique
+  mobile                String?   @unique
+  name                  String
+  role                  String
+  userType              String
+  status                String
+  plan                  String
+  loginIdentifier       String?
+  credentialHash        String?
+  /// MVP only. Production should store a salted password/PIN hash, never a plain temporary PIN.
+  tempPin               String?
+  mustChangeCredentials Boolean   @default(false)
+  approvedAt            DateTime?
+  approvedBy            String?
+  lastLoginAt           DateTime?
+  dailyAiLimit          Int       @default(3)
+  uploadLimit           Int       @default(0)
+  canDownloadMaterials  Boolean   @default(false)
+  canUploadMaterials    Boolean   @default(false)
+  canUseAI              Boolean   @default(true)
+  canUseOCR             Boolean   @default(false)
+  canImportFromDrive    Boolean   @default(false)
+  canIndexMaterials     Boolean   @default(false)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  children       Child[]
+  accessRequests AccessRequest[]
+  usages         AiUsage[]
+  progress       Progress[]
+  quizResults    QuizResult[]
+  uploads        UploadMaterial[]
+  subscriptions  Subscription[]
+  adminActions   AdminAction[]    @relation("AdminActionsByUser")
+  targetActions  AdminAction[]    @relation("AdminActionsForUser")
+
+  @@index([status])
+  @@index([email])
+  @@index([loginIdentifier])
+}
+
+model Child {
+  id                String   @id @default(cuid())
+  userId            String?
+  childId           String?
+  name              String
+  grade             String
+  classNumber       Int?
+  board             String?
+  preferredLanguage String?
+  weakSubjects      String?
+  learningGoal      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([childId])
+}
+
+model AccessRequest {
+  id                           String    @id @default(cuid())
+  parentName                   String
+  email                        String    @unique
+  mobile                       String
+  city                         String?
+  preferredLanguage            String?
+  childName                    String
+  grade                        String
+  classNumber                  Int?
+  board                        String?
+  preferredExplanationLanguage String?
+  weakSubjects                 String?
+  learningGoal                 String?
+  status                       String    @default("pending")
+  role                         String    @default("parent")
+  userType                     String    @default("externalUser")
+  plan                         String    @default("demo")
+  loginIdentifier              String?
+  expiryDate                   DateTime?
+  dailyAiLimit                 Int       @default(3)
+  uploadLimit                  Int       @default(0)
+  ocrLimit                     Int       @default(0)
+  visualLessonLimit            Int       @default(2)
+  quizGenerationLimit          Int       @default(1)
+  maxChildren                  Int       @default(1)
+  tempPin                      String?
+  credentialHash               String?
+  mustChangeCredentials        Boolean   @default(true)
+  tempCredentialsIssuedAt      DateTime?
+  canDownloadMaterials         Boolean   @default(false)
+  canUploadMaterials           Boolean   @default(false)
+  canUseAI                     Boolean   @default(false)
+  canUseOCR                    Boolean   @default(false)
+  canImportFromDrive           Boolean   @default(false)
+  canIndexMaterials            Boolean   @default(false)
+  userId                       String?
+  approvedAt                   DateTime?
+  approvedBy                   String?
+  rejectedAt                   DateTime?
+  blockedAt                    DateTime?
+  lastLoginAt                  DateTime?
+  adminNotes                   String?
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
+
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  adminActions AdminAction[]
+
+  @@index([status])
+  @@index([email])
+  @@index([userId])
+}
+
+model AiUsage {
+  id        String   @id @default(cuid())
+  userId    String?
+  sessionId String?
+  actorKey  String
+  dateKey   String
+  feature   String
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([actorKey, dateKey, feature])
+  @@index([userId])
+  @@index([dateKey])
+}
+
+model UploadMaterial {
+  id                 String   @id @default(cuid())
+  userId             String?
+  childId            String?
+  childName          String?
+  grade              String?
+  subject            String
+  materialType       String
+  chapter            String?
+  topic              String?
+  title              String
+  originalFileName   String
+  storedFileName     String?
+  mimeType           String?
+  sizeBytes          Int?
+  sizeLabel          String?
+  source             String
+  originalSourceUrl  String?
+  bookTitle          String?
+  chapterNumber      Int?
+  status             String
+  indexStatus        String?
+  indexError         String?
+  ocrStatus          String?
+  canDownload        Boolean  @default(false)
+  internalFamilyOnly Boolean  @default(false)
+  storagePath        String?
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user   User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  chunks IndexedChunk[]
+
+  @@index([userId, subject])
+  @@index([childId])
+  @@index([status])
+}
+
+model IndexedChunk {
+  id            String   @id @default(cuid())
+  materialId    String?
+  userId        String?
+  childId       String?
+  subject       String
+  title         String?
+  chunkIndex    Int
+  content       String
+  source        String?
+  bookTitle     String?
+  chapterNumber Int?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  material UploadMaterial? @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@index([userId, subject])
+  @@index([materialId])
+  @@index([childId])
+}
+
+model Progress {
+  id               String    @id @default(cuid())
+  userId           String?
+  childId          String
+  subject          String
+  lessonsCompleted Int       @default(0)
+  topicsRevised    Int       @default(0)
+  quizzesAttempted Int       @default(0)
+  starsEarned      Int       @default(0)
+  streakCount      Int       @default(0)
+  lastActiveDate   DateTime?
+  weakConcepts     Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, childId, subject])
+  @@index([childId])
+}
+
+model QuizResult {
+  id           String   @id @default(cuid())
+  userId       String?
+  childId      String
+  subject      String
+  quizTitle    String?
+  score        Int
+  total        Int
+  percentage   Float
+  weakConcepts Json?
+  answers      Json?
+  createdAt    DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([childId, subject])
+}
+
+model WeakConcept {
+  id        String   @id @default(cuid())
+  userId    String?
+  childId   String
+  subject   String
+  concept   String
+  severity  String?
+  source    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([childId, subject])
+}
+
+model Subscription {
+  id            String    @id @default(cuid())
+  userId        String
+  plan          String
+  status        String
+  startsAt      DateTime?
+  expiresAt     DateTime?
+  dailyAiLimit  Int
+  uploadLimit   Int
+  paymentStatus String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+model AdminAction {
+  id              String   @id @default(cuid())
+  adminUserId     String?
+  targetUserId    String?
+  targetRequestId String?
+  action          String
+  notes           String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+
+  adminUser     User?          @relation("AdminActionsByUser", fields: [adminUserId], references: [id], onDelete: SetNull)
+  targetUser    User?          @relation("AdminActionsForUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+  targetRequest AccessRequest? @relation(fields: [targetRequestId], references: [id], onDelete: SetNull)
+
+  @@index([adminUserId])
+  @@index([targetUserId])
+  @@index([targetRequestId])
+}

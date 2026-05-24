@@ -1,4 +1,6 @@
 import { unique, updateProgress } from "@/lib/progress-store";
+import { prisma } from "@/lib/db";
+import { isPostgresEnabled } from "@/lib/persistence-provider";
 import type { ChildId } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -9,6 +11,18 @@ export async function POST(request: Request) {
   const score = Number(body.score || 0);
   const total = Number(body.total || 0);
   const weakConcepts = body.weakConcepts || [];
+  if (isPostgresEnabled()) {
+    await prisma.quizResult.create({
+      data: {
+        childId: body.childId,
+        subject: body.subject || "General",
+        score,
+        total,
+        percentage: total ? (score / total) * 100 : 0,
+        weakConcepts,
+      },
+    });
+  }
   const progress = await updateProgress(body.childId, (record) => ({
     ...record,
     quizzesAttempted: record.quizzesAttempted + 1,
