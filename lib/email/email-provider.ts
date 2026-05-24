@@ -4,7 +4,7 @@ import { approvalLoginInstructionsEmail, buildLoginInstructions } from "./templa
 
 export type ApprovalEmailResult = {
   sent: boolean;
-  status: "sent" | "not_configured" | "unsupported";
+  status: "sent" | "not_configured" | "failed" | "unsupported";
   error?: string;
 };
 
@@ -31,6 +31,14 @@ export async function sendApprovalEmail(request: AccessRequest): Promise<Approva
   });
 
   if (result.sent) return { sent: true, status: "sent" };
+  if (result.reason === "RESEND_SEND_FAILED") {
+    return {
+      sent: false,
+      status: "failed",
+      error: result.message,
+    };
+  }
+
   return {
     sent: false,
     status: result.reason === "UNSUPPORTED_EMAIL_PROVIDER" ? "unsupported" : "not_configured",
