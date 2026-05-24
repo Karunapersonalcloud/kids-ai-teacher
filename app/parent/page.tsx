@@ -3,16 +3,21 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   AlertTriangle,
+  ArrowRight,
   BookOpen,
   CheckCircle2,
   ClipboardCheck,
   GraduationCap,
+  Lock,
+  RefreshCw,
   Sparkles,
   Target,
   UploadCloud,
   UserPlus,
 } from "lucide-react";
 import { findAccessById } from "@/lib/access-store";
+import { listAllChaptersForGrade, type ChapterPack } from "@/lib/chapter-catalog";
+import { listChapterMasteryForChild, type ChapterMasteryRecord, type ChapterStatus } from "@/lib/chapter-mastery-store";
 import { prisma } from "@/lib/db";
 import { getLatestDiagnosticForChild, type DiagnosticRecord } from "@/lib/diagnostic-store";
 import { isPostgresEnabled } from "@/lib/persistence-provider";
@@ -74,6 +79,8 @@ export default async function ParentDashboardPage({ searchParams }: { searchPara
   const selected =
     (params.childId && children.find((c) => c.id === params.childId)) || children[0];
   const diagnostic = await getLatestDiagnosticForChild(selected.id);
+  const chapters = listAllChaptersForGrade(selected.grade);
+  const mastery = await listChapterMasteryForChild(selected.id);
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 md:p-8">
@@ -86,6 +93,7 @@ export default async function ParentDashboardPage({ searchParams }: { searchPara
           <div className="space-y-6">
             <ChildProfileCard child={selected} diagnostic={diagnostic} />
             <DiagnosticCallout child={selected} diagnostic={diagnostic} />
+            <ChapterProgressCard childId={selected.id} chapters={chapters} mastery={mastery} />
             <TodayPlanCard diagnostic={diagnostic} />
           </div>
           <aside className="space-y-4">
@@ -241,6 +249,90 @@ function DiagnosticCallout({ child, diagnostic }: { child: ChildRow; diagnostic:
         <ConceptList title="Weak areas" items={diagnostic.weakAreas} tone="red" empty="No weak areas detected." />
       </div>
     </section>
+  );
+}
+
+function ChapterProgressCard({
+  childId,
+  chapters,
+  mastery,
+}: {
+  childId: string;
+  chapters: ChapterPack[];
+  mastery: ChapterMasteryRecord[];
+}) {
+  if (chapters.length === 0) {
+    return (
+      <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+        <h2 className="text-lg font-semibold text-slate-900">Chapter progress</h2>
+        <p className="mt-2 text-sm text-slate-600">Chapter packs for this grade are being added. Meanwhile, complete the diagnostic above.</p>
+      </section>
+    );
+  }
+  return (
+    <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold text-slate-900">Chapter progress</h2>
+        <Link href={`/chapters?childId=${childId}`} className="inline-flex items-center gap-1 text-sm font-semibold text-purple-700">
+          Open chapters <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+      <ul className="mt-4 space-y-2">
+        {chapters.slice(0, 6).map((ch) => {
+          const record = mastery.find((m) => m.subject === ch.subject && m.chapter === ch.chapter);
+          const status: ChapterStatus = record?.status ?? "locked";
+          return (
+            <li key={ch.chapterId} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-slate-50 px-3 py-2.5">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <ChapterStatusChip status={status} />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{ch.subject}</span>
+                </div>
+                <div className="mt-1 truncate text-sm font-semibold text-slate-900">{ch.chapter}</div>
+                {record && (
+                  <div className="text-xs text-slate-500">
+                    Best: {Math.round(record.masteryScore)}% · Attempts: {record.attempts}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Link
+                  href={`/chapters/precheck?childId=${childId}&chapterId=${ch.chapterId}`}
+                  className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200"
+                >
+                  Pre-check
+                </Link>
+                <Link
+                  href={`/chapters/exam?childId=${childId}&chapterId=${ch.chapterId}`}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                    status === "locked" ? "bg-slate-200 text-slate-500" : "bg-purple-600 text-white"
+                  }`}
+                  aria-disabled={status === "locked"}
+                >
+                  Exam
+                </Link>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function ChapterStatusChip({ status }: { status: ChapterStatus }) {
+  const map: Record<ChapterStatus, { tone: string; label: string; Icon: React.ComponentType<{ className?: string }> }> = {
+    locked: { tone: "bg-slate-200 text-slate-600", label: "Locked", Icon: Lock },
+    learning: { tone: "bg-blue-100 text-blue-700", label: "Learning", Icon: BookOpen },
+    revision: { tone: "bg-amber-100 text-amber-800", label: "Revision", Icon: RefreshCw },
+    mastered: { tone: "bg-green-100 text-green-700", label: "Mastered", Icon: CheckCircle2 },
+  };
+  const { tone, label, Icon } = map[status];
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${tone}`}>
+      <Icon className="h-3 w-3" />
+      {label}
+    </span>
   );
 }
 
