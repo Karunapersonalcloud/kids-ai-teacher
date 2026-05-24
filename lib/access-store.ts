@@ -13,12 +13,17 @@ export type AccessRequest = {
   parentName: string;
   email: string;
   mobile: string;
+  state: string;
   city: string;
   preferredLanguage: string;
   childName: string;
   grade: string;
   board: "CBSE" | "State" | "ICSE" | "Other";
   explanationLanguage: string;
+  r1Language: string;
+  r2Language: string;
+  r3Language: string;
+  regionalLanguage: string;
   weakSubjects: string;
   learningGoal: string;
   status: Exclude<AccessStatus, "guest">;
@@ -61,12 +66,17 @@ const seedRequests: AccessRequest[] = [
     parentName: "Family Admin",
     email: "admin@kids-ai-teacher.local",
     mobile: "",
+    state: "",
     city: "",
     preferredLanguage: "English",
     childName: "Jayadeep and Harini",
     grade: "Family",
     board: "CBSE",
     explanationLanguage: "English",
+    r1Language: "English",
+    r2Language: "Hindi",
+    r3Language: "Kannada",
+    regionalLanguage: "Kannada",
     weakSubjects: "",
     learningGoal: "Full family access",
     status: "active",
@@ -136,7 +146,22 @@ export async function writeAccessRequests(requests: AccessRequest[]) {
 export async function createAccessRequest(
   input: Pick<
     AccessRequest,
-    "parentName" | "email" | "mobile" | "city" | "preferredLanguage" | "childName" | "grade" | "board" | "explanationLanguage" | "weakSubjects" | "learningGoal"
+    | "parentName"
+    | "email"
+    | "mobile"
+    | "state"
+    | "city"
+    | "preferredLanguage"
+    | "childName"
+    | "grade"
+    | "board"
+    | "explanationLanguage"
+    | "r1Language"
+    | "r2Language"
+    | "r3Language"
+    | "regionalLanguage"
+    | "weakSubjects"
+    | "learningGoal"
   >
 ) {
   if (isPostgresEnabled()) {
@@ -146,12 +171,17 @@ export async function createAccessRequest(
       update: {
         parentName: input.parentName,
         mobile: input.mobile,
+        state: input.state,
         city: input.city,
         preferredLanguage: input.preferredLanguage,
         childName: input.childName,
         grade: input.grade,
         board: input.board,
         preferredExplanationLanguage: input.explanationLanguage,
+        r1Language: input.r1Language,
+        r2Language: input.r2Language,
+        r3Language: input.r3Language,
+        regionalLanguage: input.regionalLanguage,
         weakSubjects: input.weakSubjects,
         learningGoal: input.learningGoal,
         status: "pending",
@@ -164,12 +194,17 @@ export async function createAccessRequest(
         parentName: input.parentName,
         email: input.email,
         mobile: input.mobile,
+        state: input.state,
         city: input.city,
         preferredLanguage: input.preferredLanguage,
         childName: input.childName,
         grade: input.grade,
         board: input.board,
         preferredExplanationLanguage: input.explanationLanguage,
+        r1Language: input.r1Language,
+        r2Language: input.r2Language,
+        r3Language: input.r3Language,
+        regionalLanguage: input.regionalLanguage,
         weakSubjects: input.weakSubjects,
         learningGoal: input.learningGoal,
         status: "pending",
@@ -385,12 +420,17 @@ function accessFromRequest(request: {
   parentName: string;
   email: string;
   mobile: string;
+  state: string | null;
   city: string | null;
   preferredLanguage: string | null;
   childName: string;
   grade: string;
   board: string | null;
   preferredExplanationLanguage: string | null;
+  r1Language: string | null;
+  r2Language: string | null;
+  r3Language: string | null;
+  regionalLanguage: string | null;
   weakSubjects: string | null;
   learningGoal: string | null;
   status: string;
@@ -427,12 +467,17 @@ function accessFromRequest(request: {
     parentName: request.parentName,
     email: request.email,
     mobile: request.mobile,
+    state: request.state || "",
     city: request.city || "",
     preferredLanguage: request.preferredLanguage || "English",
     childName: request.childName,
     grade: request.grade,
     board: (request.board || "CBSE") as AccessRequest["board"],
     explanationLanguage: request.preferredExplanationLanguage || "English",
+    r1Language: request.r1Language || "",
+    r2Language: request.r2Language || "",
+    r3Language: request.r3Language || "",
+    regionalLanguage: request.regionalLanguage || "",
     weakSubjects: request.weakSubjects || "",
     learningGoal: request.learningGoal || "",
     status: request.status as Exclude<AccessStatus, "guest">,
@@ -482,6 +527,11 @@ function requestPatchToPrisma(patch: Partial<AccessRequest>) {
     lastLoginAt: optionalDate(patch.lastLoginAt),
     expiryDate: optionalDate(patch.expiryDate),
     adminNotes: patch.notes,
+    state: patch.state,
+    r1Language: patch.r1Language,
+    r2Language: patch.r2Language,
+    r3Language: patch.r3Language,
+    regionalLanguage: patch.regionalLanguage,
     canDownloadMaterials: patch.canDownloadMaterials,
     canUploadMaterials: patch.canUploadMaterials,
     canUseAI: patch.canUseAI,
@@ -592,12 +642,17 @@ async function upsertPostgresAccess(request: AccessRequest) {
       parentName: request.parentName,
       email: request.email,
       mobile: request.mobile,
+      state: request.state,
       city: request.city,
       preferredLanguage: request.preferredLanguage,
       childName: request.childName,
       grade: request.grade,
       board: request.board,
       preferredExplanationLanguage: request.explanationLanguage,
+      r1Language: request.r1Language,
+      r2Language: request.r2Language,
+      r3Language: request.r3Language,
+      regionalLanguage: request.regionalLanguage,
       weakSubjects: request.weakSubjects,
       learningGoal: request.learningGoal,
       status: request.status,
@@ -682,18 +737,25 @@ async function upsertApprovedUser(request: Awaited<ReturnType<typeof prisma.acce
   });
 
   const existingChild = await prisma.child.findFirst({ where: { userId: user.id, name: request.childName } });
-  if (!existingChild) {
+  const childData = {
+    userId: user.id,
+    name: request.childName,
+    grade: request.grade,
+    classNumber: request.classNumber,
+    board: request.board,
+    preferredLanguage: request.preferredExplanationLanguage,
+    r1Language: request.r1Language,
+    r2Language: request.r2Language,
+    r3Language: request.r3Language,
+    regionalLanguage: request.regionalLanguage,
+    weakSubjects: request.weakSubjects,
+    learningGoal: request.learningGoal,
+  };
+  if (existingChild) {
+    await prisma.child.update({ where: { id: existingChild.id }, data: childData });
+  } else {
     await prisma.child.create({
-      data: {
-        userId: user.id,
-        name: request.childName,
-        grade: request.grade,
-        classNumber: request.classNumber,
-        board: request.board,
-        preferredLanguage: request.preferredExplanationLanguage,
-        weakSubjects: request.weakSubjects,
-        learningGoal: request.learningGoal,
-      },
+      data: childData,
     });
   }
 
@@ -719,12 +781,17 @@ function migrateAccessRequest(request: Partial<AccessRequest>): AccessRequest {
     parentName: request.parentName || "Parent",
     email: request.email || "",
     mobile: request.mobile || "",
+    state: request.state || "",
     city: request.city || "",
     preferredLanguage: request.preferredLanguage || "English",
     childName: request.childName || "",
     grade: request.grade || "",
     board: request.board || "CBSE",
     explanationLanguage: request.explanationLanguage || "English",
+    r1Language: request.r1Language || "",
+    r2Language: request.r2Language || "",
+    r3Language: request.r3Language || "",
+    regionalLanguage: request.regionalLanguage || "",
     weakSubjects: request.weakSubjects || "",
     learningGoal: request.learningGoal || "",
     status,

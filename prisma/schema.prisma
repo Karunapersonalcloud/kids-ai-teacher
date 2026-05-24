@@ -58,6 +58,10 @@ model Child {
   classNumber       Int?
   board             String?
   preferredLanguage String?
+  r1Language        String?
+  r2Language        String?
+  r3Language        String?
+  regionalLanguage  String?
   weakSubjects      String?
   learningGoal      String?
   createdAt         DateTime @default(now())
@@ -74,6 +78,7 @@ model AccessRequest {
   parentName                   String
   email                        String    @unique
   mobile                       String
+  state                        String?
   city                         String?
   preferredLanguage            String?
   childName                    String
@@ -81,6 +86,10 @@ model AccessRequest {
   classNumber                  Int?
   board                        String?
   preferredExplanationLanguage String?
+  r1Language                   String?
+  r2Language                   String?
+  r3Language                   String?
+  regionalLanguage             String?
   weakSubjects                 String?
   learningGoal                 String?
   status                       String    @default("pending")

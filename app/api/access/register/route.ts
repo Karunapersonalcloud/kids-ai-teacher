@@ -4,7 +4,11 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const required = ["parentName", "email", "mobile", "city", "preferredLanguage", "childName", "grade", "board", "explanationLanguage", "weakSubjects", "learningGoal"];
+  const grade = String(body.grade || "");
+  const classNumber = Number(grade.match(/\d+/)?.[0] || 0);
+  const required = ["parentName", "email", "mobile", "state", "city", "preferredLanguage", "childName", "grade", "board", "explanationLanguage", "weakSubjects", "learningGoal"];
+  if (classNumber >= 9 && classNumber <= 10) required.push("r1Language", "r2Language", "r3Language");
+  if (classNumber >= 6 && classNumber <= 8) required.push("r1Language", "r2Language");
   const missing = required.find((field) => !String(body[field] || "").trim());
   if (missing) {
     return Response.json({ error: `${missing} is required.` }, { status: 400 });
@@ -14,12 +18,17 @@ export async function POST(request: Request) {
     parentName: String(body.parentName),
     email: String(body.email),
     mobile: String(body.mobile),
+    state: String(body.state),
     city: String(body.city),
     preferredLanguage: String(body.preferredLanguage),
     childName: String(body.childName),
     grade: String(body.grade),
     board: body.board,
     explanationLanguage: String(body.explanationLanguage),
+    r1Language: String(body.r1Language || ""),
+    r2Language: String(body.r2Language || ""),
+    r3Language: String(body.r3Language || ""),
+    regionalLanguage: String(body.regionalLanguage || ""),
     weakSubjects: String(body.weakSubjects),
     learningGoal: String(body.learningGoal),
   });

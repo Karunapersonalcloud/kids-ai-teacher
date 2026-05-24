@@ -82,6 +82,7 @@ Please login and change your PIN on first login.`;
             </div>
             <p className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm font-semibold leading-6">{request.learningGoal}</p>
             <div className="mt-4 grid grid-cols-3 gap-2 text-xs font-bold text-slate-500">
+              <span>State: {request.state || "Not provided"}</span>
               <span>Type: {request.userType}</span>
               <span>Status: {request.status}</span>
               <span>Plan: {request.plan}</span>
@@ -91,6 +92,18 @@ Please login and change your PIN on first login.`;
               <span>Must change PIN: {request.mustChangeCredentials ? "Yes" : "No"}</span>
               <span>Last login: {request.lastLoginAt ? new Date(request.lastLoginAt).toLocaleDateString() : "Never"}</span>
               <span>Download: {request.canDownloadMaterials ? "Allowed" : "Restricted"}</span>
+            </div>
+            <div className="mt-4 rounded-2xl bg-blue-50 p-4">
+              <div className="text-xs font-black uppercase text-blue-700">Selected Languages</div>
+              <div className="mt-2 grid gap-2 text-sm font-bold text-blue-900 sm:grid-cols-2">
+                <span>State: {request.state || "Not provided"}</span>
+                <span>Board: {request.board}</span>
+                <span>Grade: {request.grade}</span>
+                <span>R1: {request.r1Language || "Not selected"}</span>
+                <span>R2: {request.r2Language || "Not selected"}</span>
+                <span>R3: {request.r3Language || "Not selected"}</span>
+                <span>Preferred explanation: {request.explanationLanguage}</span>
+              </div>
             </div>
             {request.tempPin && request.mustChangeCredentials && (
               <div className="mt-4 rounded-2xl bg-amber-50 p-4">
