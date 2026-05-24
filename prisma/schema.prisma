@@ -34,15 +34,16 @@ model User {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  children       Child[]
-  accessRequests AccessRequest[]
-  usages         AiUsage[]
-  progress       Progress[]
-  quizResults    QuizResult[]
-  uploads        UploadMaterial[]
-  subscriptions  Subscription[]
-  adminActions   AdminAction[]    @relation("AdminActionsByUser")
-  targetActions  AdminAction[]    @relation("AdminActionsForUser")
+  children        Child[]
+  accessRequests  AccessRequest[]
+  usages          AiUsage[]
+  progress        Progress[]
+  quizResults     QuizResult[]
+  uploads         UploadMaterial[]
+  subscriptions   Subscription[]
+  adminActions    AdminAction[]    @relation("AdminActionsByUser")
+  targetActions   AdminAction[]    @relation("AdminActionsForUser")
+  studentSubjects StudentSubject[]
 
   @@index([status])
   @@index([email])
@@ -63,6 +64,7 @@ model Child {
   r3Language                   String?
   regionalLanguage             String?
   selectedLanguages            Json?
+  submittedSubjects            Json?
   cbseLanguageRuleWarning      String?
   cbseLanguageValidationStatus String?
   weakSubjects                 String?
@@ -70,7 +72,8 @@ model Child {
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
 
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentSubjects StudentSubject[]
 
   @@index([userId])
   @@index([childId])
@@ -94,6 +97,7 @@ model AccessRequest {
   r3Language                   String?
   regionalLanguage             String?
   selectedLanguages            Json?
+  submittedSubjects            Json?
   cbseLanguageRuleWarning      String?
   cbseLanguageValidationStatus String?
   weakSubjects                 String?
@@ -130,12 +134,41 @@ model AccessRequest {
   createdAt                    DateTime  @default(now())
   updatedAt                    DateTime  @updatedAt
 
-  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  adminActions AdminAction[]
+  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  adminActions    AdminAction[]
+  studentSubjects StudentSubject[]
 
   @@index([status])
   @@index([email])
   @@index([userId])
+}
+
+model StudentSubject {
+  id                  String   @id @default(cuid())
+  userId              String?
+  childId             String?
+  accessRequestId     String?
+  subjectName         String
+  subjectType         String
+  languageRole        String?
+  language            String?
+  publisher           String
+  bookTitle           String?
+  medium              String?
+  autoDownloadAllowed Boolean  @default(false)
+  sourceStatus        String   @default("pending")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user          User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  child         Child?         @relation(fields: [childId], references: [id], onDelete: SetNull)
+  accessRequest AccessRequest? @relation(fields: [accessRequestId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([childId])
+  @@index([accessRequestId])
+  @@index([subjectName])
+  @@index([sourceStatus])
 }
 
 model AiUsage {

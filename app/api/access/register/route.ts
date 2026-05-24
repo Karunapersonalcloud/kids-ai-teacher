@@ -1,5 +1,6 @@
 import { createAccessRequest } from "@/lib/access-store";
 import { buildSelectedLanguageMetadata, validateCbseLanguageSelection } from "@/lib/cbse-language-catalog";
+import { normalizeSubmittedSubjects } from "@/lib/student-subjects";
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,10 @@ export async function POST(request: Request) {
     r2Language: String(body.r2Language || ""),
     r3Language: String(body.r3Language || ""),
   });
+  const submittedSubjects = normalizeSubmittedSubjects(body.submittedSubjects);
+  if (!submittedSubjects.length) {
+    return Response.json({ error: "Please add at least one subject your child is studying." }, { status: 400 });
+  }
 
   const record = await createAccessRequest({
     parentName: String(body.parentName),
@@ -43,6 +48,7 @@ export async function POST(request: Request) {
     r3Language: String(body.r3Language || ""),
     regionalLanguage: String(body.regionalLanguage || ""),
     selectedLanguages: JSON.stringify(selectedLanguages),
+    submittedSubjects: JSON.stringify(submittedSubjects),
     cbseLanguageRuleWarning: validation.status === "Valid" ? "" : validation.message,
     cbseLanguageValidationStatus: validation.status,
     weakSubjects: String(body.weakSubjects),

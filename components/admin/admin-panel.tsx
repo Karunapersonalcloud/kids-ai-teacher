@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/shared/app-shell";
 import type { AccessRequest } from "@/lib/access-store";
+import { normalizeSubmittedSubjects } from "@/lib/student-subjects";
 
 const groups = ["pending", "trial", "active", "expired", "rejected", "blocked"] as const;
 
@@ -109,6 +110,32 @@ Please login and change your PIN on first login.`;
                 {request.cbseLanguageRuleWarning ? ` - ${request.cbseLanguageRuleWarning}` : ""}
               </div>
             </div>
+            <div className="mt-4 rounded-2xl bg-green-50 p-4">
+              <div className="text-xs font-black uppercase text-green-700">Selected Subjects and Textbooks</div>
+              <div className="mt-3 grid gap-2">
+                {normalizeSubmittedSubjects(request.submittedSubjects).length ? (
+                  normalizeSubmittedSubjects(request.submittedSubjects).map((subject, index) => (
+                    <div key={`${subject.subjectName}-${index}`} className="rounded-xl bg-white p-3 text-sm font-bold text-slate-700">
+                      <div className="font-black text-green-800">
+                        {subject.languageRole !== "Not Applicable" ? `${subject.languageRole} ` : ""}
+                        {subject.subjectName}
+                      </div>
+                      <div className="mt-1 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">
+                        <span>Type: {subject.subjectType}</span>
+                        <span>Language: {subject.language || "Not applicable"}</span>
+                        <span>Publisher: {subject.publisher}</span>
+                        <span>Book: {subject.bookTitle || "Not provided"}</span>
+                        <span>Medium: {subject.medium}</span>
+                        <span>Auto NCERT: {subject.autoDownloadAllowed ? "Allowed" : "No"}</span>
+                        <span>Status: {subject.sourceStatus}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl bg-white p-3 text-sm font-bold text-slate-500">No submitted subject list yet.</div>
+                )}
+              </div>
+            </div>
             {request.tempPin && request.mustChangeCredentials && (
               <div className="mt-4 rounded-2xl bg-amber-50 p-4">
                 <div className="text-xs font-black uppercase text-amber-700">Temporary credentials</div>
@@ -137,6 +164,8 @@ Please login and change your PIN on first login.`;
               <button onClick={() => action(request.id, "block")} className="rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700">Block</button>
               <button onClick={() => action(request.id, "extend")} className="rounded-full bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">Extend Access</button>
               <button onClick={() => action(request.id, "set-limit")} className="rounded-full bg-amber-50 px-3 py-2 text-xs font-black text-amber-700">Set Daily AI Limit</button>
+              <button onClick={() => action(request.id, "mark-upload-required")} className="rounded-full bg-orange-50 px-3 py-2 text-xs font-black text-orange-700">Mark textbook upload required</button>
+              <button onClick={() => action(request.id, "trigger-ncert-download")} className="rounded-full bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">Trigger NCERT Download</button>
               <button onClick={() => action(request.id, "reset-pin")} className="rounded-full bg-red-50 px-3 py-2 text-xs font-black text-red-700">Reset PIN/password</button>
               <button onClick={() => copyInstructions(request)} className="rounded-full bg-slate-900 px-3 py-2 text-xs font-black text-white">Copy Login Instructions</button>
             </div>

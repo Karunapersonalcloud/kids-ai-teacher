@@ -5,6 +5,7 @@ import { prisma } from "./db";
 import { isPostgresEnabled } from "./persistence-provider";
 import type { PlanName } from "./billing-types";
 import type { AccessStatus, UserRole } from "./access-control";
+import { normalizeSubmittedSubjects } from "./student-subjects";
 
 export type UserType = "internalFamily" | "externalUser";
 
@@ -25,6 +26,7 @@ export type AccessRequest = {
   r3Language: string;
   regionalLanguage: string;
   selectedLanguages: string;
+  submittedSubjects: string;
   cbseLanguageRuleWarning: string;
   cbseLanguageValidationStatus: string;
   weakSubjects: string;
@@ -85,6 +87,7 @@ const seedRequests: AccessRequest[] = [
       { role: "R2", language: "Hindi", subjectLabel: "R2 Hindi" },
       { role: "R3", language: "Kannada", subjectLabel: "R3 Kannada" },
     ]),
+    submittedSubjects: "[]",
     cbseLanguageRuleWarning: "",
     cbseLanguageValidationStatus: "Valid",
     weakSubjects: "",
@@ -171,6 +174,7 @@ export async function createAccessRequest(
     | "r3Language"
     | "regionalLanguage"
     | "selectedLanguages"
+    | "submittedSubjects"
     | "cbseLanguageRuleWarning"
     | "cbseLanguageValidationStatus"
     | "weakSubjects"
@@ -196,6 +200,7 @@ export async function createAccessRequest(
         r3Language: input.r3Language,
         regionalLanguage: input.regionalLanguage,
         selectedLanguages: input.selectedLanguages,
+        submittedSubjects: parseJson(input.submittedSubjects),
         cbseLanguageRuleWarning: input.cbseLanguageRuleWarning,
         cbseLanguageValidationStatus: input.cbseLanguageValidationStatus,
         weakSubjects: input.weakSubjects,
@@ -222,6 +227,7 @@ export async function createAccessRequest(
         r3Language: input.r3Language,
         regionalLanguage: input.regionalLanguage,
         selectedLanguages: input.selectedLanguages,
+        submittedSubjects: parseJson(input.submittedSubjects),
         cbseLanguageRuleWarning: input.cbseLanguageRuleWarning,
         cbseLanguageValidationStatus: input.cbseLanguageValidationStatus,
         weakSubjects: input.weakSubjects,
@@ -313,7 +319,11 @@ export async function findAccessById(id: string) {
   if (isPostgresEnabled()) {
     await ensurePostgresFamilyAdmin();
     const user = await prisma.user.findUnique({ where: { id } });
-    if (user) return accessFromUser(user);
+    if (user) {
+      const request = await prisma.accessRequest.findFirst({ where: { userId: user.id } });
+      if (request) return accessFromRequest(request);
+      return accessFromUser(user);
+    }
     const request = await prisma.accessRequest.findUnique({ where: { id } });
     return request ? accessFromRequest(request) : undefined;
   }
@@ -466,6 +476,7 @@ function accessFromRequest(request: {
   r3Language: string | null;
   regionalLanguage: string | null;
   selectedLanguages: unknown;
+  submittedSubjects: unknown;
   cbseLanguageRuleWarning: string | null;
   cbseLanguageValidationStatus: string | null;
   weakSubjects: string | null;
@@ -516,6 +527,7 @@ function accessFromRequest(request: {
     r3Language: request.r3Language || "",
     regionalLanguage: request.regionalLanguage || "",
     selectedLanguages: stringifyJson(request.selectedLanguages),
+    submittedSubjects: stringifyJson(request.submittedSubjects),
     cbseLanguageRuleWarning: request.cbseLanguageRuleWarning || "",
     cbseLanguageValidationStatus: request.cbseLanguageValidationStatus || "",
     weakSubjects: request.weakSubjects || "",
@@ -573,6 +585,7 @@ function requestPatchToPrisma(patch: Partial<AccessRequest>) {
     r3Language: patch.r3Language,
     regionalLanguage: patch.regionalLanguage,
     selectedLanguages: parseJson(patch.selectedLanguages),
+    submittedSubjects: parseJson(patch.submittedSubjects),
     cbseLanguageRuleWarning: patch.cbseLanguageRuleWarning,
     cbseLanguageValidationStatus: patch.cbseLanguageValidationStatus,
     canDownloadMaterials: patch.canDownloadMaterials,
@@ -697,6 +710,7 @@ async function upsertPostgresAccess(request: AccessRequest) {
       r3Language: request.r3Language,
       regionalLanguage: request.regionalLanguage,
       selectedLanguages: parseJson(request.selectedLanguages),
+      submittedSubjects: parseJson(request.submittedSubjects),
       cbseLanguageRuleWarning: request.cbseLanguageRuleWarning,
       cbseLanguageValidationStatus: request.cbseLanguageValidationStatus,
       weakSubjects: request.weakSubjects,
@@ -733,6 +747,7 @@ async function upsertPostgresAccess(request: AccessRequest) {
 
 async function upsertApprovedUser(request: Awaited<ReturnType<typeof prisma.accessRequest.findUnique>> & {}) {
   if (!request) throw new Error("Missing access request.");
+  const submittedSubjects = normalizeSubmittedSubjects(request.submittedSubjects);
   const user = await prisma.user.upsert({
     where: { email: request.email },
     update: {
@@ -795,16 +810,42 @@ async function upsertApprovedUser(request: Awaited<ReturnType<typeof prisma.acce
     r3Language: request.r3Language,
     regionalLanguage: request.regionalLanguage,
     selectedLanguages: parseJson(request.selectedLanguages),
+    submittedSubjects: parseJson(request.submittedSubjects),
     cbseLanguageRuleWarning: request.cbseLanguageRuleWarning,
     cbseLanguageValidationStatus: request.cbseLanguageValidationStatus,
     weakSubjects: request.weakSubjects,
     learningGoal: request.learningGoal,
   };
+  let child;
   if (existingChild) {
-    await prisma.child.update({ where: { id: existingChild.id }, data: childData });
+    child = await prisma.child.update({ where: { id: existingChild.id }, data: childData });
   } else {
-    await prisma.child.create({
+    child = await prisma.child.create({
       data: childData,
+    });
+  }
+
+  await prisma.studentSubject.deleteMany({
+    where: {
+      OR: [{ accessRequestId: request.id }, { userId: user.id, childId: child.id }],
+    },
+  });
+  if (submittedSubjects.length) {
+    await prisma.studentSubject.createMany({
+      data: submittedSubjects.map((subject) => ({
+        userId: user.id,
+        childId: child.id,
+        accessRequestId: request.id,
+        subjectName: subject.subjectName,
+        subjectType: subject.subjectType,
+        languageRole: subject.languageRole,
+        language: subject.language,
+        publisher: subject.publisher,
+        bookTitle: subject.bookTitle,
+        medium: subject.medium,
+        autoDownloadAllowed: subject.autoDownloadAllowed,
+        sourceStatus: subject.sourceStatus,
+      })),
     });
   }
 
@@ -842,6 +883,7 @@ function migrateAccessRequest(request: Partial<AccessRequest>): AccessRequest {
     r3Language: request.r3Language || "",
     regionalLanguage: request.regionalLanguage || "",
     selectedLanguages: request.selectedLanguages || "",
+    submittedSubjects: request.submittedSubjects || "",
     cbseLanguageRuleWarning: request.cbseLanguageRuleWarning || "",
     cbseLanguageValidationStatus: request.cbseLanguageValidationStatus || "",
     weakSubjects: request.weakSubjects || "",

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { findAccessById } from "@/lib/access-store";
 import { getSubjectsForStudent } from "@/lib/grade-catalog";
 import { getSessionUserIdFromCookie } from "@/lib/session";
+import { normalizeSubmittedSubjects } from "@/lib/student-subjects";
 
 export default async function DashboardPage() {
   const cookieStore = await cookies();
@@ -25,6 +26,10 @@ function ExternalUserDashboard({ access }: { access?: Awaited<ReturnType<typeof 
     r2Language: access?.r2Language,
     r3Language: access?.r3Language,
   });
+  const submittedSubjects = normalizeSubmittedSubjects(access?.submittedSubjects);
+  const subjectLabels = submittedSubjects.length
+    ? submittedSubjects.map((subject) => (subject.languageRole !== "Not Applicable" ? `${subject.languageRole} ${subject.subjectName}` : subject.subjectName))
+    : subjects;
   return (
     <main className="min-h-screen bg-[#f7f5ff] p-5">
       <section className="mx-auto max-w-5xl rounded-3xl bg-white p-6 shadow-sm">
@@ -41,7 +46,7 @@ function ExternalUserDashboard({ access }: { access?: Awaited<ReturnType<typeof 
         <div className="mt-6 rounded-2xl bg-white p-4 ring-1 ring-purple-100">
           <div className="text-sm font-black text-purple-700">Your selected school subjects</div>
           <div className="mt-3 flex flex-wrap gap-2">
-            {subjects.map((subject) => (
+            {subjectLabels.map((subject) => (
               <span key={subject} className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
                 {subject}
               </span>

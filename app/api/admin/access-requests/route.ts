@@ -1,6 +1,7 @@
 import { getLimitsForPlan } from "@/lib/access-control";
 import { generateTemporaryPin, readAccessRequests, updateAccessRequest } from "@/lib/access-store";
 import { getRequestAccess } from "@/lib/request-access";
+import { normalizeSubmittedSubjects, type SubmittedSubject } from "@/lib/student-subjects";
 import type { PlanName } from "@/lib/billing-types";
 
 export const runtime = "nodejs";
@@ -17,10 +18,48 @@ export async function PATCH(request: Request) {
     return Response.json({ error: "id and action are required." }, { status: 400 });
   }
 
+  if (body.action === "mark-upload-required" || body.action === "trigger-ncert-download") {
+    const requests = await readAccessRequests();
+    const current = requests.find((item) => item.id === body.id);
+    if (!current) return Response.json({ error: "Request not found." }, { status: 404 });
+    const subjects = normalizeSubmittedSubjects(current.submittedSubjects);
+    const nextSubjects = body.action === "mark-upload-required" ? markUploadRequired(subjects) : markNcertForDownload(subjects);
+    const updated = await updateAccessRequest(body.id, {
+      submittedSubjects: JSON.stringify(nextSubjects),
+      notes:
+        body.action === "mark-upload-required"
+          ? "Textbook upload required for selected subjects."
+          : "NCERT download eligibility checked. Student-scoped import can run only for matched official NCERT books.",
+    });
+    return Response.json({ request: updated });
+  }
+
   const patch = patchForAction(body.action, body);
   const updated = await updateAccessRequest(body.id, patch);
   if (!updated) return Response.json({ error: "Request not found." }, { status: 404 });
   return Response.json({ request: updated });
+}
+
+function markUploadRequired(subjects: SubmittedSubject[]) {
+  return subjects.map((subject) => ({
+    ...subject,
+    autoDownloadAllowed: false,
+    sourceStatus: "needsUpload" as const,
+  }));
+}
+
+function markNcertForDownload(subjects: SubmittedSubject[]) {
+  return subjects.map((subject) => {
+    if (subject.publisher !== "NCERT") {
+      return { ...subject, sourceStatus: "needsUpload" as const };
+    }
+
+    if (!subject.autoDownloadAllowed || !subject.bookTitle.trim()) {
+      return { ...subject, sourceStatus: "needsUpload" as const };
+    }
+
+    return { ...subject, sourceStatus: "matched" as const };
+  });
 }
 
 async function isAdmin(request: Request) {
