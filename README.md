@@ -73,7 +73,7 @@ npm run db:seed
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
 GOOGLE_DRIVE_API_KEY=
-GOOGLE_DRIVE_FOLDER_ID=
+GOOGLE_DRIVE_FOLDER_ID=15KLTJUjUCNrcNrYUVGRw94Q2ZmnyPXIF
 LOCAL_TEXTBOOK_ROOT=
 NCERT_DOWNLOAD_ROOT=
 NCERT_AUTO_CHECK_ENABLED=false
@@ -100,6 +100,18 @@ PostgreSQL mode stores critical access, usage, progress, upload metadata, quiz r
 PERSISTENCE_PROVIDER=postgres
 DATABASE_URL=
 ```
+
+For Vercel production, confirm these values are set:
+
+```env
+DATABASE_URL=
+PERSISTENCE_PROVIDER=postgres
+OPENAI_MODEL=gpt-4o-mini
+SESSION_SECRET=
+GOOGLE_DRIVE_FOLDER_ID=15KLTJUjUCNrcNrYUVGRw94Q2ZmnyPXIF
+```
+
+`OPENAI_API_KEY` and `GOOGLE_DRIVE_API_KEY` are optional until those integrations are enabled for production traffic.
 
 For production, use durable services:
 
