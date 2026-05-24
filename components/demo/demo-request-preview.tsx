@@ -7,6 +7,7 @@ import { DemoVisualPreview } from "./demo-visual-preview";
 const grades = ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Class 6", "Class 7", "Class 8", "Class 9", "Class 10"];
 const boards = ["CBSE", "State Board", "ICSE", "Other"];
 const subjects = ["English", "Maths", "EVS", "Science", "Social Science", "Hindi", "Kannada", "Telugu", "Computer", "Other"];
+const narrationLanguages = ["English", "Hindi", "Telugu", "Kannada"];
 const DEMO_LIMIT_KEY = "conceptkid_demo_preview_count";
 const DEMO_LIMIT = 3;
 
@@ -16,6 +17,7 @@ export function DemoRequestPreview() {
   const [subject, setSubject] = useState("EVS");
   const [chapter, setChapter] = useState("Chapter 3: Plants");
   const [topic, setTopic] = useState("");
+  const [language, setLanguage] = useState("English");
   const [lesson, setLesson] = useState<DemoVisualLesson | null>(null);
   const [usedCount, setUsedCount] = useState(() => {
     if (typeof window === "undefined") {
@@ -48,7 +50,7 @@ export function DemoRequestPreview() {
       return;
     }
 
-    const nextLesson = generateDemoLesson({ grade, board, subject, chapter, topic });
+    const nextLesson = generateDemoLesson({ grade, board, subject, chapter, topic, language });
     const nextCount = usedCount + 1;
     window.localStorage.setItem(DEMO_LIMIT_KEY, String(nextCount));
     setUsedCount(nextCount);
@@ -60,9 +62,15 @@ export function DemoRequestPreview() {
     <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-purple-100">
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         <form onSubmit={generatePreview} className="rounded-3xl bg-[#f7f5ff] p-5">
-          <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">Limited demo preview</span>
-          <h2 className="mt-4 text-3xl font-black text-slate-950">Request a sample class demo</h2>
+          <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">Interactive visual demo</span>
+          <h2 className="mt-4 text-3xl font-black text-slate-950">Select class, subject, chapter, and topic</h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{helperText}</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            ConceptKid demos are interactive. Instead of showing one fixed video, we generate a visual lesson preview based on what you select.
+          </p>
+          <p className="mt-2 text-sm font-bold leading-6 text-purple-800">
+            Full textbook-based learning unlocks after registration and authorized textbook setup.
+          </p>
           <p className="mt-2 text-xs font-black text-slate-500">{remaining} of {DEMO_LIMIT} free previews remaining in this browser session.</p>
 
           <div className="mt-5 grid gap-4">
@@ -88,10 +96,15 @@ export function DemoRequestPreview() {
             <Field label="Topic name (optional)">
               <input value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="Example: Animal homes / Fractions / Motion" className="rounded-2xl border border-purple-100 bg-white px-4 py-3 font-bold shadow-sm" />
             </Field>
+            <Field label="Narration language">
+              <select value={language} onChange={(event) => setLanguage(event.target.value)} className="rounded-2xl border border-purple-100 bg-white px-4 py-3 font-bold shadow-sm">
+                {narrationLanguages.map((item) => <option key={item}>{item}</option>)}
+              </select>
+            </Field>
           </div>
 
           {message && <div className="mt-4 rounded-2xl bg-white p-4 text-sm font-bold leading-6 text-purple-800">{message}</div>}
-          <button className="mt-5 w-full rounded-2xl bg-purple-600 px-5 py-3 text-sm font-black text-white">Generate Demo Preview</button>
+          <button className="mt-5 w-full rounded-2xl bg-purple-600 px-5 py-3 text-sm font-black text-white">Generate Visual Demo</button>
         </form>
 
         <div className="rounded-3xl bg-slate-950 p-5 text-white">

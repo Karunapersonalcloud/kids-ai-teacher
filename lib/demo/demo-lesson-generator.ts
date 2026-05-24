@@ -6,6 +6,7 @@ export type DemoLessonRequest = {
   subject: string;
   chapter: string;
   topic?: string;
+  language?: string;
 };
 
 export type DemoSlide = {

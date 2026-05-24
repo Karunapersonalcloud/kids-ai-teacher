@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowRight, BookMarked, Brain, CheckCircle2, ClipboardList, FileUp, GraduationCap, LockKeyhole, Repeat2, ShieldCheck, Sparkles } from "lucide-react";
-import { DemoVideo } from "./demo-video";
 import { GradeDemoClass } from "./grade-demo-class";
 import { ParentPreview } from "./parent-preview";
 import { DemoRequestPreview } from "./demo-request-preview";
@@ -20,7 +19,7 @@ const textbookExamples = [
   ["School Worksheet", "Parent upload required", "bg-purple-50 text-purple-700"],
 ] as const;
 
-export function DemoPage({ hasDemoVideo, hasDemoPoster }: { hasDemoVideo: boolean; hasDemoPoster: boolean }) {
+export function DemoPage() {
   return (
     <main className="min-h-screen bg-[#f7f5ff] text-slate-950">
       <section className="mx-auto max-w-7xl px-5 py-6 md:py-10">
@@ -35,13 +34,13 @@ export function DemoPage({ hasDemoVideo, hasDemoPoster }: { hasDemoVideo: boolea
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
           <div className="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-purple-100 md:p-10">
             <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">Demo Mode</span>
-            <h1 className="mt-5 max-w-3xl text-4xl font-black leading-tight text-slate-950 md:text-6xl">See How ConceptKid Teaches Your Child</h1>
+            <h1 className="mt-5 max-w-3xl text-4xl font-black leading-tight text-slate-950 md:text-6xl">Try a Visual Demo Class</h1>
             <p className="mt-5 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
-              Grade-wise visual learning, textbook-based teaching, strict CBSE-style evaluation, and parent progress tracking.
+              Select your child&apos;s class, subject, chapter, and topic. ConceptKid will show a limited visual learning preview with audio narration.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <Link href="/register" className="rounded-2xl bg-purple-600 px-5 py-3 font-black text-white shadow-sm">Register for Access</Link>
-              <a href="#sample-demo-class" className="rounded-2xl bg-blue-50 px-5 py-3 font-black text-blue-700">Try Sample Demo Class</a>
+              <a href="#visual-demo" className="rounded-2xl bg-purple-600 px-5 py-3 font-black text-white shadow-sm">Generate Visual Demo</a>
+              <Link href="/register" className="rounded-2xl bg-blue-50 px-5 py-3 font-black text-blue-700">Register for Access</Link>
             </div>
           </div>
 
@@ -68,8 +67,9 @@ export function DemoPage({ hasDemoVideo, hasDemoPoster }: { hasDemoVideo: boolea
       </section>
 
       <div className="mx-auto grid max-w-7xl gap-6 px-5 pb-10">
-        <DemoVideo hasVideo={hasDemoVideo} hasPoster={hasDemoPoster} />
-        <DemoRequestPreview />
+        <div id="visual-demo">
+          <DemoRequestPreview />
+        </div>
         <GradeDemoClass />
 
         <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-purple-100">
