@@ -98,6 +98,7 @@ model AccessRequest {
   regionalLanguage             String?
   selectedLanguages            Json?
   submittedSubjects            Json?
+  submittedChildren            Json?
   cbseLanguageRuleWarning      String?
   cbseLanguageValidationStatus String?
   weakSubjects                 String?
@@ -341,4 +342,152 @@ model AdminAction {
   @@index([adminUserId])
   @@index([targetUserId])
   @@index([targetRequestId])
+}
+
+
+model DiagnosticResult {
+  id                    String   @id @default(cuid())
+  userId                String?
+  childId               String
+  grade                 String
+  subject               String
+  score                 Int
+  total                 Int
+  percentage            Float
+  weakAreas             Json?
+  strongAreas           Json?
+  recommendedStartLevel String?
+  learningPlan          Json?
+  riskLevel             String?
+  answers               Json?
+  completedAt           DateTime @default(now())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId])
+  @@index([childId, subject])
+  @@index([completedAt])
+}
+
+model ChapterReadinessResult {
+  id                              String   @id @default(cuid())
+  userId                          String?
+  childId                         String
+  subject                         String
+  chapter                         String
+  readinessStatus                 String
+  score                           Int
+  total                           Int
+  percentage                      Float
+  weakPrerequisites               Json?
+  recommendedPrerequisiteLessons  Json?
+  answers                         Json?
+  createdAt                       DateTime @default(now())
+
+  @@index([userId])
+  @@index([childId, subject, chapter])
+}
+
+model ChapterMastery {
+  id            String    @id @default(cuid())
+  userId        String?
+  childId       String
+  subject       String
+  chapter       String
+  masteryScore  Float     @default(0)
+  status        String    @default("locked")
+  attempts      Int       @default(0)
+  weakConcepts  Json?
+  lastAttemptAt DateTime?
+  masteredAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([childId, subject, chapter])
+  @@index([userId])
+  @@index([childId, subject])
+  @@index([status])
+}
+
+model RevisionTask {
+  id          String    @id @default(cuid())
+  userId      String?
+  childId     String
+  subject     String
+  chapter     String?
+  concept     String
+  taskType    String
+  status      String    @default("pending")
+  dueOn       DateTime?
+  completedAt DateTime?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([childId, subject])
+  @@index([status])
+}
+
+model BacklogPlan {
+  id           String    @id @default(cuid())
+  userId       String?
+  childId      String
+  subject      String
+  chapter      String
+  weakConcepts Json?
+  dailyPlan    Json?
+  status       String    @default("active")
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([childId, subject, chapter])
+  @@index([status])
+}
+
+model HomeworkSubmission {
+  id          String   @id @default(cuid())
+  userId      String?
+  childId     String
+  subject     String?
+  chapter     String?
+  topic       String?
+  imageUrl    String?
+  filePath    String?
+  ocrText     String?
+  ocrStatus   String   @default("pending")
+  status      String   @default("submitted")
+  score       Float?
+  feedback    Json?
+  submittedAt DateTime @default(now())
+  reviewedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([childId, subject])
+  @@index([status])
+}
+
+model ExamPlan {
+  id              String    @id @default(cuid())
+  userId          String?
+  childId         String
+  examName        String
+  examDate        DateTime?
+  subjects        Json?
+  chapters        Json?
+  weightage       Json?
+  portionImageUrl String?
+  readinessScore  Float?
+  dailyPlan       Json?
+  status          String    @default("active")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([childId])
+  @@index([examDate])
 }

@@ -1,8 +1,12 @@
 import { DashboardHome } from "@/components/dashboard/dashboard-home";
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { findAccessById } from "@/lib/access-store";
+import { prisma } from "@/lib/db";
+import { getLatestDiagnosticForChild } from "@/lib/diagnostic-store";
 import { getSubjectsForStudent } from "@/lib/grade-catalog";
+import { isPostgresEnabled } from "@/lib/persistence-provider";
 import { getSessionUserIdFromCookie } from "@/lib/session";
 import { normalizeSubmittedSubjects } from "@/lib/student-subjects";
 
@@ -15,9 +19,28 @@ export default async function DashboardPage() {
       .join("; ");
     const userId = getSessionUserIdFromCookie(cookieHeader);
     const access = userId ? await findAccessById(userId) : undefined;
+
+    // Mastery-flow gate: if any child of this approved parent has no DiagnosticResult,
+    // send the parent to the diagnostic onboarding before the dashboard.
+    if (access && isPostgresEnabled()) {
+      const firstChildNeedingDiagnostic = await findFirstChildNeedingDiagnostic(access.id);
+      if (firstChildNeedingDiagnostic) {
+        redirect(`/diagnostic?childId=${firstChildNeedingDiagnostic}`);
+      }
+    }
+
     return <ExternalUserDashboard access={access} />;
   }
   return <DashboardHome />;
+}
+
+async function findFirstChildNeedingDiagnostic(userId: string): Promise<string | undefined> {
+  const children = await prisma.child.findMany({ where: { userId }, orderBy: { createdAt: "asc" }, select: { id: true } });
+  for (const child of children) {
+    const latest = await getLatestDiagnosticForChild(child.id);
+    if (!latest) return child.id;
+  }
+  return undefined;
 }
 
 function ExternalUserDashboard({ access }: { access?: Awaited<ReturnType<typeof findAccessById>> }) {

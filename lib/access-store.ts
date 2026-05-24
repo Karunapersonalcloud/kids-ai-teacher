@@ -6,6 +6,7 @@ import { isPostgresEnabled } from "./persistence-provider";
 import type { PlanName } from "./billing-types";
 import type { AccessStatus, UserRole } from "./access-control";
 import { normalizeSubmittedSubjects } from "./student-subjects";
+import { normalizeChildDrafts, type ChildRegistrationDraft } from "./multi-child";
 
 export type UserType = "internalFamily" | "externalUser";
 
@@ -27,6 +28,7 @@ export type AccessRequest = {
   regionalLanguage: string;
   selectedLanguages: string;
   submittedSubjects: string;
+  submittedChildren: string;
   cbseLanguageRuleWarning: string;
   cbseLanguageValidationStatus: string;
   weakSubjects: string;
@@ -88,6 +90,7 @@ const seedRequests: AccessRequest[] = [
       { role: "R3", language: "Kannada", subjectLabel: "R3 Kannada" },
     ]),
     submittedSubjects: "[]",
+    submittedChildren: "[]",
     cbseLanguageRuleWarning: "",
     cbseLanguageValidationStatus: "Valid",
     weakSubjects: "",
@@ -175,6 +178,7 @@ export async function createAccessRequest(
     | "regionalLanguage"
     | "selectedLanguages"
     | "submittedSubjects"
+    | "submittedChildren"
     | "cbseLanguageRuleWarning"
     | "cbseLanguageValidationStatus"
     | "weakSubjects"
@@ -201,6 +205,7 @@ export async function createAccessRequest(
         regionalLanguage: input.regionalLanguage,
         selectedLanguages: input.selectedLanguages,
         submittedSubjects: parseJson(input.submittedSubjects),
+        submittedChildren: parseJson(input.submittedChildren),
         cbseLanguageRuleWarning: input.cbseLanguageRuleWarning,
         cbseLanguageValidationStatus: input.cbseLanguageValidationStatus,
         weakSubjects: input.weakSubjects,
@@ -228,6 +233,7 @@ export async function createAccessRequest(
         regionalLanguage: input.regionalLanguage,
         selectedLanguages: input.selectedLanguages,
         submittedSubjects: parseJson(input.submittedSubjects),
+        submittedChildren: parseJson(input.submittedChildren),
         cbseLanguageRuleWarning: input.cbseLanguageRuleWarning,
         cbseLanguageValidationStatus: input.cbseLanguageValidationStatus,
         weakSubjects: input.weakSubjects,
@@ -477,6 +483,7 @@ function accessFromRequest(request: {
   regionalLanguage: string | null;
   selectedLanguages: unknown;
   submittedSubjects: unknown;
+  submittedChildren: unknown;
   cbseLanguageRuleWarning: string | null;
   cbseLanguageValidationStatus: string | null;
   weakSubjects: string | null;
@@ -528,8 +535,8 @@ function accessFromRequest(request: {
     regionalLanguage: request.regionalLanguage || "",
     selectedLanguages: stringifyJson(request.selectedLanguages),
     submittedSubjects: stringifyJson(request.submittedSubjects),
-    cbseLanguageRuleWarning: request.cbseLanguageRuleWarning || "",
-    cbseLanguageValidationStatus: request.cbseLanguageValidationStatus || "",
+    submittedChildren: stringifyJson(request.submittedChildren),
+    cbseLanguageRuleWarning: request.cbseLanguageRuleWarning || "",    cbseLanguageValidationStatus: request.cbseLanguageValidationStatus || "",
     weakSubjects: request.weakSubjects || "",
     learningGoal: request.learningGoal || "",
     status: request.status as Exclude<AccessStatus, "guest">,
@@ -586,6 +593,7 @@ function requestPatchToPrisma(patch: Partial<AccessRequest>) {
     regionalLanguage: patch.regionalLanguage,
     selectedLanguages: parseJson(patch.selectedLanguages),
     submittedSubjects: parseJson(patch.submittedSubjects),
+    submittedChildren: parseJson(patch.submittedChildren),
     cbseLanguageRuleWarning: patch.cbseLanguageRuleWarning,
     cbseLanguageValidationStatus: patch.cbseLanguageValidationStatus,
     canDownloadMaterials: patch.canDownloadMaterials,
@@ -711,6 +719,7 @@ async function upsertPostgresAccess(request: AccessRequest) {
       regionalLanguage: request.regionalLanguage,
       selectedLanguages: parseJson(request.selectedLanguages),
       submittedSubjects: parseJson(request.submittedSubjects),
+      submittedChildren: parseJson(request.submittedChildren),
       cbseLanguageRuleWarning: request.cbseLanguageRuleWarning,
       cbseLanguageValidationStatus: request.cbseLanguageValidationStatus,
       weakSubjects: request.weakSubjects,
@@ -797,56 +806,74 @@ async function upsertApprovedUser(request: Awaited<ReturnType<typeof prisma.acce
     },
   });
 
-  const existingChild = await prisma.child.findFirst({ where: { userId: user.id, name: request.childName } });
-  const childData = {
-    userId: user.id,
-    name: request.childName,
-    grade: request.grade,
-    classNumber: request.classNumber,
-    board: request.board,
-    preferredLanguage: request.preferredExplanationLanguage,
-    r1Language: request.r1Language,
-    r2Language: request.r2Language,
-    r3Language: request.r3Language,
-    regionalLanguage: request.regionalLanguage,
-    selectedLanguages: parseJson(request.selectedLanguages),
-    submittedSubjects: parseJson(request.submittedSubjects),
-    cbseLanguageRuleWarning: request.cbseLanguageRuleWarning,
-    cbseLanguageValidationStatus: request.cbseLanguageValidationStatus,
-    weakSubjects: request.weakSubjects,
-    learningGoal: request.learningGoal,
-  };
-  let child;
-  if (existingChild) {
-    child = await prisma.child.update({ where: { id: existingChild.id }, data: childData });
-  } else {
-    child = await prisma.child.create({
-      data: childData,
-    });
-  }
+  // Multi-child registration: if the request includes a `submittedChildren` array,
+  // create one Child per draft. Otherwise fall back to the legacy single-child flow
+  // built from the top-level fields (childName, grade, submittedSubjects, ...).
+  const childDrafts = normalizeChildDrafts(request.submittedChildren);
+  const drafts: ChildRegistrationDraft[] = childDrafts.length
+    ? childDrafts
+    : [
+        {
+          childName: request.childName,
+          grade: request.grade,
+          board: (request.board || "CBSE") as ChildRegistrationDraft["board"],
+          r1Language: request.r1Language || "",
+          r2Language: request.r2Language || "",
+          r3Language: request.r3Language || "",
+          explanationLanguage: request.preferredExplanationLanguage || "English",
+          weakSubjects: request.weakSubjects || "",
+          learningGoal: request.learningGoal || "",
+          submittedSubjects,
+        },
+      ];
 
-  await prisma.studentSubject.deleteMany({
-    where: {
-      OR: [{ accessRequestId: request.id }, { userId: user.id, childId: child.id }],
-    },
-  });
-  if (submittedSubjects.length) {
-    await prisma.studentSubject.createMany({
-      data: submittedSubjects.map((subject) => ({
-        userId: user.id,
-        childId: child.id,
-        accessRequestId: request.id,
-        subjectName: subject.subjectName,
-        subjectType: subject.subjectType,
-        languageRole: subject.languageRole,
-        language: subject.language,
-        publisher: subject.publisher,
-        bookTitle: subject.bookTitle,
-        medium: subject.medium,
-        autoDownloadAllowed: subject.autoDownloadAllowed,
-        sourceStatus: subject.sourceStatus,
-      })),
-    });
+  // Clear previous StudentSubject rows scoped to this request so re-approval is idempotent.
+  await prisma.studentSubject.deleteMany({ where: { accessRequestId: request.id } });
+
+  for (const draft of drafts) {
+    const draftClassNumber = Number(draft.grade.match(/\d+/)?.[0] || 0) || null;
+    const childData = {
+      userId: user.id,
+      name: draft.childName,
+      grade: draft.grade,
+      classNumber: draftClassNumber,
+      board: draft.board,
+      preferredLanguage: draft.explanationLanguage,
+      r1Language: draft.r1Language,
+      r2Language: draft.r2Language,
+      r3Language: draft.r3Language,
+      regionalLanguage: request.regionalLanguage,
+      selectedLanguages: parseJson(request.selectedLanguages),
+      submittedSubjects: draft.submittedSubjects as unknown as object,
+      cbseLanguageRuleWarning: request.cbseLanguageRuleWarning,
+      cbseLanguageValidationStatus: request.cbseLanguageValidationStatus,
+      weakSubjects: draft.weakSubjects,
+      learningGoal: draft.learningGoal,
+    };
+
+    const existingChild = await prisma.child.findFirst({ where: { userId: user.id, name: draft.childName } });
+    const child = existingChild
+      ? await prisma.child.update({ where: { id: existingChild.id }, data: childData })
+      : await prisma.child.create({ data: childData });
+
+    if (draft.submittedSubjects.length) {
+      await prisma.studentSubject.createMany({
+        data: draft.submittedSubjects.map((subject) => ({
+          userId: user.id,
+          childId: child.id,
+          accessRequestId: request.id,
+          subjectName: subject.subjectName,
+          subjectType: subject.subjectType,
+          languageRole: subject.languageRole,
+          language: subject.language,
+          publisher: subject.publisher,
+          bookTitle: subject.bookTitle,
+          medium: subject.medium,
+          autoDownloadAllowed: subject.autoDownloadAllowed,
+          sourceStatus: subject.sourceStatus,
+        })),
+      });
+    }
   }
 
   return user;
@@ -884,6 +911,7 @@ function migrateAccessRequest(request: Partial<AccessRequest>): AccessRequest {
     regionalLanguage: request.regionalLanguage || "",
     selectedLanguages: request.selectedLanguages || "",
     submittedSubjects: request.submittedSubjects || "",
+    submittedChildren: request.submittedChildren || "",
     cbseLanguageRuleWarning: request.cbseLanguageRuleWarning || "",
     cbseLanguageValidationStatus: request.cbseLanguageValidationStatus || "",
     weakSubjects: request.weakSubjects || "",
