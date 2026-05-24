@@ -26,6 +26,9 @@ OPENAI_API_KEY=
 GOOGLE_DRIVE_FOLDER_ID=15KLTJUjUCNrcNrYUVGRw94Q2ZmnyPXIF
 GOOGLE_DRIVE_API_KEY=
 SESSION_SECRET=
+ADMIN_EMAIL=
+ADMIN_PIN=
+ADMIN_NAME=ConceptKid Admin
 ```
 
 Optional/local-only variables:
@@ -47,6 +50,8 @@ npx prisma generate
 npx prisma migrate deploy
 npm run db:seed
 ```
+
+`ADMIN_PIN` is a temporary admin PIN. The seeded admin is forced to change it on first login.
 
 For local development against a fresh Neon branch, you can also use:
 

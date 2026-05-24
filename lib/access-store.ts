@@ -255,6 +255,19 @@ export async function updateAccessRequest(id: string, patch: Partial<AccessReque
   return next.find((request) => request.id === id);
 }
 
+export async function findAccessById(id: string) {
+  if (isPostgresEnabled()) {
+    await ensurePostgresFamilyAdmin();
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (user) return accessFromUser(user);
+    const request = await prisma.accessRequest.findUnique({ where: { id } });
+    return request ? accessFromRequest(request) : undefined;
+  }
+
+  const requests = await readAccessRequests();
+  return requests.find((request) => request.id === id);
+}
+
 export async function findAccessByEmail(email: string) {
   if (isPostgresEnabled()) {
     await ensurePostgresFamilyAdmin();

@@ -25,6 +25,7 @@ export function proxy(request: NextRequest) {
   }
 
   if (pathname.startsWith("/admin")) {
+    if (!request.cookies.get("kids_session")?.value) return NextResponse.redirect(new URL("/login", request.url));
     if (role === "admin" && status === "active") return NextResponse.next();
     return NextResponse.redirect(new URL("/access-denied", request.url));
   }

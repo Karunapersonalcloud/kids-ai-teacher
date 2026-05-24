@@ -1,16 +1,17 @@
 import { getLimitsForPlan } from "@/lib/access-control";
 import { generateTemporaryPin, readAccessRequests, updateAccessRequest } from "@/lib/access-store";
+import { getRequestAccess } from "@/lib/request-access";
 import type { PlanName } from "@/lib/billing-types";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  if (!isAdmin(request)) return Response.json({ error: "Admin access required." }, { status: 403 });
+  if (!(await isAdmin(request))) return Response.json({ error: "Admin access required." }, { status: 403 });
   return Response.json({ requests: await readAccessRequests() });
 }
 
 export async function PATCH(request: Request) {
-  if (!isAdmin(request)) return Response.json({ error: "Admin access required." }, { status: 403 });
+  if (!(await isAdmin(request))) return Response.json({ error: "Admin access required." }, { status: 403 });
   const body = (await request.json()) as { id?: string; action?: string; notes?: string; expiryDate?: string; dailyAiLimit?: number };
   if (!body.id || !body.action) {
     return Response.json({ error: "id and action are required." }, { status: 400 });
@@ -22,9 +23,9 @@ export async function PATCH(request: Request) {
   return Response.json({ request: updated });
 }
 
-function isAdmin(request: Request) {
-  const cookie = request.headers.get("cookie") || "";
-  return cookie.includes("kids_access_role=admin") && cookie.includes("kids_access_status=active");
+async function isAdmin(request: Request) {
+  const access = await getRequestAccess(request);
+  return access.role === "admin" && access.userType === "internalFamily" && access.status === "active";
 }
 
 function patchForAction(action: string, body: { notes?: string; expiryDate?: string; dailyAiLimit?: number }) {

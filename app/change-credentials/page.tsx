@@ -16,12 +16,12 @@ export default function ChangeCredentialsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ newPin, confirmPin }),
     });
-    const data = (await response.json()) as { error?: string };
+    const data = (await response.json()) as { error?: string; redirectTo?: string };
     if (!response.ok) {
       setMessage(data.error || "Could not update credentials.");
       return;
     }
-    router.push("/dashboard");
+    router.push(data.redirectTo || "/dashboard");
   }
 
   return (

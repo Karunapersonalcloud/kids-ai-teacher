@@ -1,5 +1,6 @@
 import type { PlanName } from "./billing-types";
-import { findAccessByIdentifier } from "./access-store";
+import { findAccessById, findAccessByIdentifier } from "./access-store";
+import { getSessionUserIdFromCookie } from "./session";
 
 export type AccessPolicy = {
   canDownloadMaterials: boolean;
@@ -32,9 +33,11 @@ export function parseCookieHeader(cookie: string) {
 }
 
 export async function getRequestAccess(request: Request): Promise<RequestAccess> {
-  const cookies = parseCookieHeader(request.headers.get("cookie") || "");
+  const cookieHeader = request.headers.get("cookie") || "";
+  const cookies = parseCookieHeader(cookieHeader);
+  const sessionUserId = getSessionUserIdFromCookie(cookieHeader);
   const email = cookies.kids_user_email || "";
-  const record = email ? await findAccessByIdentifier(email) : undefined;
+  const record = sessionUserId ? await findAccessById(sessionUserId) : email ? await findAccessByIdentifier(email) : undefined;
 
   if (record) {
     return {

@@ -9,6 +9,11 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState("");
+  const [showLocalAdmin] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const host = window.location.hostname.toLowerCase();
+    return process.env.NODE_ENV !== "production" && (host === "localhost" || host === "127.0.0.1" || host === "::1");
+  });
 
   async function login(adminDemo = false) {
     const response = await fetch("/api/auth/login", {
@@ -24,7 +29,7 @@ export default function LoginPage() {
     if (data.user.status === "pending") router.push("/pending-approval");
     else if (data.user.status === "rejected" || data.user.status === "blocked" || data.user.status === "expired") router.push("/access-denied");
     else if (data.user.mustChangeCredentials) router.push("/change-credentials");
-    else if (data.user.role === "admin") router.push("/dashboard");
+    else if (data.user.role === "admin") router.push("/admin");
     else if (data.user.status === "trial" || data.user.status === "active") router.push("/dashboard");
     else router.push("/access-denied");
   }
@@ -34,13 +39,18 @@ export default function LoginPage() {
       <section className="w-full max-w-md rounded-3xl bg-white p-6 shadow-sm">
         <Link href="/" className="text-sm font-black text-purple-700">← Back</Link>
         <h1 className="mt-4 text-3xl font-black text-purple-800">Parent Login</h1>
-        <p className="mt-2 text-sm font-semibold text-slate-500">Local MVP login. Production auth can replace this later.</p>
-        <div className="mt-5 rounded-2xl bg-amber-50 p-4">
-          <div className="font-black text-amber-800">Family Admin Login</div>
-          <button onClick={() => login(true)} className="mt-3 w-full rounded-xl bg-amber-100 px-5 py-3 font-black text-amber-800">Use Local Family Admin</button>
-        </div>
+        <p className="mt-2 text-sm font-semibold text-slate-500">Admin and approved parents can login using their registered email/mobile and PIN.</p>
+        {showLocalAdmin && (
+          <div className="mt-5 rounded-2xl bg-amber-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="font-black text-amber-800">Family Admin Login</div>
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Local Dev Only</span>
+            </div>
+            <button onClick={() => login(true)} className="mt-3 w-full rounded-xl bg-amber-100 px-5 py-3 font-black text-amber-800">Use Local Family Admin</button>
+          </div>
+        )}
         <div className="mt-5 rounded-2xl bg-purple-50 p-4">
-          <div className="font-black text-purple-800">Approved User Login</div>
+          <div className="font-black text-purple-800">Email / Mobile Login</div>
           <input value={identifier} onChange={(event) => setIdentifier(event.target.value)} className="mt-3 w-full rounded-xl border border-purple-100 px-4 py-3 font-bold" placeholder="Email or mobile" />
           <input value={pin} onChange={(event) => setPin(event.target.value)} type="password" className="mt-3 w-full rounded-xl border border-purple-100 px-4 py-3 font-bold" placeholder="PIN/password" />
         </div>

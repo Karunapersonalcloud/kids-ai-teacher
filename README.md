@@ -84,6 +84,9 @@ HARINI_PIN=
 SESSION_SECRET=
 DATABASE_URL=
 PERSISTENCE_PROVIDER=json
+ADMIN_EMAIL=
+ADMIN_PIN=
+ADMIN_NAME=
 ```
 
 Never commit `.env.local` or real API keys.
@@ -109,6 +112,9 @@ PERSISTENCE_PROVIDER=postgres
 OPENAI_MODEL=gpt-4o-mini
 SESSION_SECRET=
 GOOGLE_DRIVE_FOLDER_ID=15KLTJUjUCNrcNrYUVGRw94Q2ZmnyPXIF
+ADMIN_EMAIL=
+ADMIN_PIN=
+ADMIN_NAME=ConceptKid Admin
 ```
 
 `OPENAI_API_KEY` and `GOOGLE_DRIVE_API_KEY` are optional until those integrations are enabled for production traffic.

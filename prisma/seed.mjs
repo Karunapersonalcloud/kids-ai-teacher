@@ -8,22 +8,51 @@ const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/kids_ai_teacher",
 });
 const prisma = new PrismaClient({ adapter });
+const productionMode = process.env.NODE_ENV === "production" || process.env.PERSISTENCE_PROVIDER === "postgres";
+const adminEmail = process.env.ADMIN_EMAIL || (productionMode ? "" : "admin@kids-ai-teacher.local");
+const adminPin = process.env.ADMIN_PIN || (productionMode ? "" : "000000");
+const adminName = process.env.ADMIN_NAME || "Family Admin";
+
+if (!adminEmail || !adminPin) {
+  throw new Error("ADMIN_EMAIL and ADMIN_PIN are required when seeding production/admin PostgreSQL data.");
+}
 
 async function main() {
   const admin = await prisma.user.upsert({
     where: { id: "family-admin" },
-    update: {},
-    create: {
-      id: "family-admin",
-      email: "admin@kids-ai-teacher.local",
-      name: "Family Admin",
+    update: {
+      email: adminEmail,
+      name: adminName,
       role: "admin",
       userType: "internalFamily",
       status: "active",
       plan: "family",
-      loginIdentifier: "admin@kids-ai-teacher.local",
-      credentialHash: "000000",
-      mustChangeCredentials: false,
+      loginIdentifier: adminEmail,
+      credentialHash: adminPin,
+      tempPin: adminPin,
+      mustChangeCredentials: true,
+      dailyAiLimit: 500,
+      uploadLimit: 500,
+      canDownloadMaterials: true,
+      canUploadMaterials: true,
+      canUseAI: true,
+      canUseOCR: true,
+      canImportFromDrive: true,
+      canIndexMaterials: true,
+    },
+    create: {
+      id: "family-admin",
+      email: adminEmail,
+      name: adminName,
+      role: "admin",
+      userType: "internalFamily",
+      status: "active",
+      plan: "family",
+      loginIdentifier: adminEmail,
+      // TODO production: replace MVP PIN storage with a salted password/PIN hash.
+      credentialHash: adminPin,
+      tempPin: adminPin,
+      mustChangeCredentials: true,
       approvedAt: new Date(),
       approvedBy: "seed",
       dailyAiLimit: 500,
