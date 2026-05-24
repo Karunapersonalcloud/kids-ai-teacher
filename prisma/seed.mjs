@@ -1,8 +1,17 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { existsSync, readFileSync } from "node:fs";
+import { randomBytes, scryptSync } from "node:crypto";
 
 loadLocalEnv();
+
+// Keep this in sync with lib/credentials.ts. Format: scrypt$<saltHex>$<hashHex>.
+function hashPin(pin) {
+  if (!pin) throw new Error("pin is required");
+  const salt = randomBytes(16);
+  const derived = scryptSync(pin, salt, 64, { N: 16384, r: 8, p: 1 });
+  return `scrypt$${salt.toString("hex")}$${derived.toString("hex")}`;
+}
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/kids_ai_teacher",
@@ -18,6 +27,7 @@ if (!adminEmail || !adminPin) {
 }
 
 async function main() {
+  const credentialHash = hashPin(adminPin);
   const admin = await prisma.user.upsert({
     where: { id: "family-admin" },
     update: {
@@ -28,7 +38,7 @@ async function main() {
       status: "active",
       plan: "family",
       loginIdentifier: adminEmail,
-      credentialHash: adminPin,
+      credentialHash,
       tempPin: adminPin,
       mustChangeCredentials: true,
       dailyAiLimit: 500,
@@ -49,8 +59,7 @@ async function main() {
       status: "active",
       plan: "family",
       loginIdentifier: adminEmail,
-      // TODO production: replace MVP PIN storage with a salted password/PIN hash.
-      credentialHash: adminPin,
+      credentialHash,
       tempPin: adminPin,
       mustChangeCredentials: true,
       approvedAt: new Date(),
@@ -65,6 +74,7 @@ async function main() {
       canIndexMaterials: true,
     },
   });
+  console.log(`Admin user seeded/updated for ${adminEmail} (PIN is stored as a hashed credential).`);
 
   for (const child of [
     {

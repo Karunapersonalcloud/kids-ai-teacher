@@ -1,4 +1,5 @@
 import { findAccessById, findAccessByIdentifier, updateAccessRequest } from "@/lib/access-store";
+import { hashPin, verifyPin } from "@/lib/credentials";
 import { parseCookieHeader } from "@/lib/request-access";
 import { getSessionUserIdFromCookie } from "@/lib/session";
 
@@ -13,12 +14,23 @@ export async function POST(request: Request) {
   const user = sessionUserId ? await findAccessById(sessionUserId) : email ? await findAccessByIdentifier(email) : undefined;
 
   if (!user) return Response.json({ error: "Login session not found." }, { status: 401 });
-  if (!body.newPin || body.newPin.length < 6) return Response.json({ error: "New PIN/password must be at least 6 characters." }, { status: 400 });
-  if (body.newPin !== body.confirmPin) return Response.json({ error: "Confirm PIN/password must match." }, { status: 400 });
-  if (body.newPin === user.tempPin || body.newPin === user.credentialHash) return Response.json({ error: "New PIN/password cannot be the same as the temporary PIN." }, { status: 400 });
+
+  const newPin = (body.newPin || "").trim();
+  const confirmPin = (body.confirmPin || "").trim();
+  if (!newPin || newPin.length < 6) return Response.json({ error: "New PIN/password must be at least 6 characters." }, { status: 400 });
+  if (newPin !== confirmPin) return Response.json({ error: "Confirm PIN/password must match." }, { status: 400 });
+
+  // Reject if new PIN equals the temporary PIN or the current credential.
+  if (user.tempPin && newPin === user.tempPin) {
+    return Response.json({ error: "New PIN/password cannot be the same as the temporary PIN." }, { status: 400 });
+  }
+  const currentMatch = verifyPin(user.credentialHash, newPin);
+  if (currentMatch.ok) {
+    return Response.json({ error: "New PIN/password must be different from the current one." }, { status: 400 });
+  }
 
   await updateAccessRequest(user.id, {
-    credentialHash: body.newPin,
+    credentialHash: hashPin(newPin),
     tempPin: undefined,
     mustChangeCredentials: false,
     notes: "User changed temporary PIN.",

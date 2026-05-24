@@ -1,5 +1,6 @@
 import { getLimitsForPlan } from "@/lib/access-control";
 import { generateTemporaryPin, readAccessRequests, updateAccessRequest } from "@/lib/access-store";
+import { hashPin } from "@/lib/credentials";
 import { getRequestAccess } from "@/lib/request-access";
 import { normalizeSubmittedSubjects, type SubmittedSubject } from "@/lib/student-subjects";
 import type { PlanName } from "@/lib/billing-types";
@@ -83,8 +84,10 @@ function approvedPatch(patch: Record<string, unknown>) {
   const now = new Date().toISOString();
   return {
     ...patch,
+    // tempPin is shown once to the admin for hand-off; credentialHash stores
+    // the hashed value so login does not compare plain text.
     tempPin,
-    credentialHash: tempPin,
+    credentialHash: hashPin(tempPin),
     mustChangeCredentials: true,
     tempCredentialsIssuedAt: now,
     approvedAt: now,
