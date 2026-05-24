@@ -50,22 +50,25 @@ model User {
 }
 
 model Child {
-  id                String   @id @default(cuid())
-  userId            String?
-  childId           String?
-  name              String
-  grade             String
-  classNumber       Int?
-  board             String?
-  preferredLanguage String?
-  r1Language        String?
-  r2Language        String?
-  r3Language        String?
-  regionalLanguage  String?
-  weakSubjects      String?
-  learningGoal      String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                           String   @id @default(cuid())
+  userId                       String?
+  childId                      String?
+  name                         String
+  grade                        String
+  classNumber                  Int?
+  board                        String?
+  preferredLanguage            String?
+  r1Language                   String?
+  r2Language                   String?
+  r3Language                   String?
+  regionalLanguage             String?
+  selectedLanguages            Json?
+  cbseLanguageRuleWarning      String?
+  cbseLanguageValidationStatus String?
+  weakSubjects                 String?
+  learningGoal                 String?
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
 
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -90,6 +93,9 @@ model AccessRequest {
   r2Language                   String?
   r3Language                   String?
   regionalLanguage             String?
+  selectedLanguages            Json?
+  cbseLanguageRuleWarning      String?
+  cbseLanguageValidationStatus String?
   weakSubjects                 String?
   learningGoal                 String?
   status                       String    @default("pending")

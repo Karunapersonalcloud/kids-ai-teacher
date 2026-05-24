@@ -3,22 +3,28 @@
 import { useState } from "react";
 import Link from "next/link";
 import { getClassNumberFromGrade, getSubjectsForGrade, getSubjectsForStudent, gradeOptions } from "@/lib/grade-catalog";
-import { getStateLanguageSuggestion, languageOptions, stateOptions } from "@/lib/state-language-catalog";
+import { buildSelectedLanguageMetadata, cbseLanguages, cbseLanguageNames, validateCbseLanguageSelection } from "@/lib/cbse-language-catalog";
+import { getIndiaStateSuggestion, indiaStateOptions } from "@/lib/india-state-catalog";
 
 export default function RegisterPage() {
   const [grade, setGrade] = useState("Class 9");
   const [state, setState] = useState("Karnataka");
+  const [board, setBoard] = useState("CBSE");
   const [r1Language, setR1Language] = useState("");
   const [r2Language, setR2Language] = useState("");
   const [r3Language, setR3Language] = useState("");
   const [status, setStatus] = useState("");
   const classNumber = getClassNumberFromGrade(grade);
-  const suggestion = getStateLanguageSuggestion(state);
+  const suggestion = getIndiaStateSuggestion(state);
+  const cbseValidation = validateCbseLanguageSelection({ board, grade, r1Language, r2Language, r3Language });
   const studentSubjects = getSubjectsForStudent(grade, { r1Language, r2Language, r3Language });
+  const selectedLanguages = buildSelectedLanguageMetadata({ r1Language, r2Language, r3Language });
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    form.set("selectedLanguages", JSON.stringify(selectedLanguages));
+    form.set("cbseLanguageRuleWarning", cbseValidation.status === "Valid" ? "" : cbseValidation.message);
     const payload = Object.fromEntries(form.entries());
     const response = await fetch("/api/access/register", {
       method: "POST",
@@ -44,9 +50,10 @@ export default function RegisterPage() {
           <Input name="mobile" label="Mobile number" />
           <label className="grid gap-2 text-sm font-black text-slate-700">
             State
-            <select name="state" value={state} onChange={(event) => setState(event.target.value)} className="rounded-xl border border-purple-100 px-4 py-3 font-bold">
-              {stateOptions.map((option) => <option key={option}>{option}</option>)}
-            </select>
+            <input name="state" list="state-options" value={state} onChange={(event) => setState(event.target.value)} className="rounded-xl border border-purple-100 px-4 py-3 font-bold" />
+            <datalist id="state-options">
+              {indiaStateOptions.map((option) => <option key={option} value={option} />)}
+            </datalist>
           </label>
           <Input name="city" label="City" />
           <Input name="preferredLanguage" label="Preferred language" defaultValue="English" />
@@ -59,17 +66,20 @@ export default function RegisterPage() {
           </label>
           <label className="grid gap-2 text-sm font-black text-slate-700">
             Board
-            <select name="board" className="rounded-xl border border-purple-100 px-4 py-3 font-bold">
+            <select name="board" value={board} onChange={(event) => setBoard(event.target.value)} className="rounded-xl border border-purple-100 px-4 py-3 font-bold">
               {["CBSE", "State", "ICSE", "Other"].map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
           {suggestion && (
             <div className="rounded-2xl bg-blue-50 p-4 text-sm font-bold leading-6 text-blue-700 md:col-span-2">
-              Suggestion: {suggestion.suggestionText}
+              {suggestion.suggestionText}
             </div>
           )}
           <div className="rounded-2xl bg-purple-50 p-4 text-sm font-bold leading-6 text-purple-700 md:col-span-2">
-            CBSE language combinations may vary by school. Parent/student must select the actual school-approved R1/R2/R3.
+            CBSE requires three languages for Class IX, with at least two Indian languages. Please select the exact school-approved R1/R2/R3.
+          </div>
+          <div className={`rounded-2xl p-4 text-sm font-bold leading-6 md:col-span-2 ${cbseValidation.status === "Valid" ? "bg-green-50 text-green-700" : cbseValidation.status === "Invalid combination" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}`}>
+            CBSE language validation: {cbseValidation.status}. {cbseValidation.message}
           </div>
 
           {classNumber >= 9 && classNumber <= 10 && (
@@ -101,7 +111,9 @@ export default function RegisterPage() {
 
           <LanguageSelect name="explanationLanguage" label="Preferred explanation language" defaultValue="English" />
           <Input name="weakSubjects" label="Weak subjects" defaultValue={getSubjectsForGrade(grade).slice(0, 3).join(", ")} />
-          <input type="hidden" name="regionalLanguage" value={suggestion?.suggestedRegionalLanguage || ""} />
+          <input type="hidden" name="regionalLanguage" value={suggestion?.suggestedLanguages[0] || ""} />
+          <input type="hidden" name="selectedLanguages" value={JSON.stringify(selectedLanguages)} />
+          <input type="hidden" name="cbseLanguageRuleWarning" value={cbseValidation.status === "Valid" ? "" : cbseValidation.message} />
           <label className="grid gap-2 text-sm font-black text-slate-700 md:col-span-2">
             Learning goal
             <textarea name="learningGoal" required className="min-h-28 rounded-xl border border-purple-100 px-4 py-3 font-bold" placeholder="Example: rebuild basics, prepare for exams, improve reading..." />
@@ -153,17 +165,26 @@ function LanguageSelect({
   return (
     <label className="grid gap-2 text-sm font-black text-slate-700">
       {label}
-      <select
+      <input
         name={name}
+        list={`${name}-options`}
         value={value}
         defaultValue={value === undefined ? defaultValue : undefined}
         onChange={onChange ? (event) => onChange(event.target.value) : undefined}
         required={required}
+        placeholder="Search/select language"
         className="rounded-xl border border-purple-100 px-4 py-3 font-bold"
-      >
-        <option value="">Select language</option>
-        {languageOptions.map((option) => <option key={option}>{option}</option>)}
-      </select>
+      />
+      <datalist id={`${name}-options`}>
+        {cbseLanguageNames.map((option) => {
+          const language = cbseLanguages.find((item) => item.name === option);
+          return (
+            <option key={option} value={option}>
+              {option}{language ? ` - ${language.type}` : ""}
+            </option>
+          );
+        })}
+      </datalist>
     </label>
   );
 }

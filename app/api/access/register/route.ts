@@ -1,4 +1,5 @@
 import { createAccessRequest } from "@/lib/access-store";
+import { buildSelectedLanguageMetadata, validateCbseLanguageSelection } from "@/lib/cbse-language-catalog";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,18 @@ export async function POST(request: Request) {
   if (missing) {
     return Response.json({ error: `${missing} is required.` }, { status: 400 });
   }
+  const validation = validateCbseLanguageSelection({
+    board: String(body.board || ""),
+    grade,
+    r1Language: String(body.r1Language || ""),
+    r2Language: String(body.r2Language || ""),
+    r3Language: String(body.r3Language || ""),
+  });
+  const selectedLanguages = buildSelectedLanguageMetadata({
+    r1Language: String(body.r1Language || ""),
+    r2Language: String(body.r2Language || ""),
+    r3Language: String(body.r3Language || ""),
+  });
 
   const record = await createAccessRequest({
     parentName: String(body.parentName),
@@ -29,6 +42,9 @@ export async function POST(request: Request) {
     r2Language: String(body.r2Language || ""),
     r3Language: String(body.r3Language || ""),
     regionalLanguage: String(body.regionalLanguage || ""),
+    selectedLanguages: JSON.stringify(selectedLanguages),
+    cbseLanguageRuleWarning: validation.status === "Valid" ? "" : validation.message,
+    cbseLanguageValidationStatus: validation.status,
     weakSubjects: String(body.weakSubjects),
     learningGoal: String(body.learningGoal),
   });

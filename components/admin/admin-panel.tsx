@@ -104,6 +104,10 @@ Please login and change your PIN on first login.`;
                 <span>R3: {request.r3Language || "Not selected"}</span>
                 <span>Preferred explanation: {request.explanationLanguage}</span>
               </div>
+              <div className={`mt-3 rounded-xl px-3 py-2 text-sm font-black ${request.cbseLanguageValidationStatus === "Valid" ? "bg-green-100 text-green-700" : request.cbseLanguageValidationStatus === "Invalid combination" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>
+                CBSE language validation: {request.cbseLanguageValidationStatus || "Needs school confirmation"}
+                {request.cbseLanguageRuleWarning ? ` - ${request.cbseLanguageRuleWarning}` : ""}
+              </div>
             </div>
             {request.tempPin && request.mustChangeCredentials && (
               <div className="mt-4 rounded-2xl bg-amber-50 p-4">

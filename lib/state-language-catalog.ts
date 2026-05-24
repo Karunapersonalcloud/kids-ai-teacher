@@ -1,44 +1,8 @@
-export const languageOptions = ["English", "Hindi", "Kannada", "Telugu", "Tamil", "Malayalam", "Marathi", "Sanskrit", "Urdu", "Other"];
+import { cbseLanguageNames } from "./cbse-language-catalog";
+import { getIndiaStateSuggestion, indiaStateOptions } from "./india-state-catalog";
 
-export const stateOptions = [
-  "Andhra Pradesh",
-  "Arunachal Pradesh",
-  "Assam",
-  "Bihar",
-  "Chhattisgarh",
-  "Goa",
-  "Gujarat",
-  "Haryana",
-  "Himachal Pradesh",
-  "Jharkhand",
-  "Delhi",
-  "Karnataka",
-  "Kerala",
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Manipur",
-  "Meghalaya",
-  "Mizoram",
-  "Nagaland",
-  "Odisha",
-  "Punjab",
-  "Rajasthan",
-  "Sikkim",
-  "Tamil Nadu",
-  "Telangana",
-  "Tripura",
-  "Uttar Pradesh",
-  "Uttarakhand",
-  "West Bengal",
-  "Andaman and Nicobar Islands",
-  "Chandigarh",
-  "Dadra and Nagar Haveli and Daman and Diu",
-  "Jammu and Kashmir",
-  "Ladakh",
-  "Lakshadweep",
-  "Puducherry",
-  "Other / Outside India",
-];
+export const languageOptions = cbseLanguageNames;
+export const stateOptions = indiaStateOptions;
 
 export type StateLanguageSuggestion = {
   suggestedRegionalLanguage: string;
@@ -77,5 +41,12 @@ export const stateLanguageCatalog: Record<string, StateLanguageSuggestion> = {
 };
 
 export function getStateLanguageSuggestion(state: string) {
+  const suggestion = getIndiaStateSuggestion(state);
+  if (suggestion) {
+    return {
+      suggestedRegionalLanguage: suggestion.suggestedLanguages[0] || "",
+      suggestionText: suggestion.suggestionText,
+    };
+  }
   return stateLanguageCatalog[state];
 }

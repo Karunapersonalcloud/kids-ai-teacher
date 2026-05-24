@@ -24,6 +24,9 @@ export type AccessRequest = {
   r2Language: string;
   r3Language: string;
   regionalLanguage: string;
+  selectedLanguages: string;
+  cbseLanguageRuleWarning: string;
+  cbseLanguageValidationStatus: string;
   weakSubjects: string;
   learningGoal: string;
   status: Exclude<AccessStatus, "guest">;
@@ -77,6 +80,13 @@ const seedRequests: AccessRequest[] = [
     r2Language: "Hindi",
     r3Language: "Kannada",
     regionalLanguage: "Kannada",
+    selectedLanguages: JSON.stringify([
+      { role: "R1", language: "English", subjectLabel: "R1 English" },
+      { role: "R2", language: "Hindi", subjectLabel: "R2 Hindi" },
+      { role: "R3", language: "Kannada", subjectLabel: "R3 Kannada" },
+    ]),
+    cbseLanguageRuleWarning: "",
+    cbseLanguageValidationStatus: "Valid",
     weakSubjects: "",
     learningGoal: "Full family access",
     status: "active",
@@ -160,6 +170,9 @@ export async function createAccessRequest(
     | "r2Language"
     | "r3Language"
     | "regionalLanguage"
+    | "selectedLanguages"
+    | "cbseLanguageRuleWarning"
+    | "cbseLanguageValidationStatus"
     | "weakSubjects"
     | "learningGoal"
   >
@@ -182,6 +195,9 @@ export async function createAccessRequest(
         r2Language: input.r2Language,
         r3Language: input.r3Language,
         regionalLanguage: input.regionalLanguage,
+        selectedLanguages: input.selectedLanguages,
+        cbseLanguageRuleWarning: input.cbseLanguageRuleWarning,
+        cbseLanguageValidationStatus: input.cbseLanguageValidationStatus,
         weakSubjects: input.weakSubjects,
         learningGoal: input.learningGoal,
         status: "pending",
@@ -205,6 +221,9 @@ export async function createAccessRequest(
         r2Language: input.r2Language,
         r3Language: input.r3Language,
         regionalLanguage: input.regionalLanguage,
+        selectedLanguages: input.selectedLanguages,
+        cbseLanguageRuleWarning: input.cbseLanguageRuleWarning,
+        cbseLanguageValidationStatus: input.cbseLanguageValidationStatus,
         weakSubjects: input.weakSubjects,
         learningGoal: input.learningGoal,
         status: "pending",
@@ -357,6 +376,21 @@ function isoDate(value?: Date | string | null) {
   return value instanceof Date ? value.toISOString() : value;
 }
 
+function parseJson(value?: unknown) {
+  if (!value) return undefined;
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function stringifyJson(value: unknown) {
+  if (!value) return "";
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
 function accessFromUser(user: {
   id: string;
   name: string;
@@ -431,6 +465,9 @@ function accessFromRequest(request: {
   r2Language: string | null;
   r3Language: string | null;
   regionalLanguage: string | null;
+  selectedLanguages: unknown;
+  cbseLanguageRuleWarning: string | null;
+  cbseLanguageValidationStatus: string | null;
   weakSubjects: string | null;
   learningGoal: string | null;
   status: string;
@@ -478,6 +515,9 @@ function accessFromRequest(request: {
     r2Language: request.r2Language || "",
     r3Language: request.r3Language || "",
     regionalLanguage: request.regionalLanguage || "",
+    selectedLanguages: stringifyJson(request.selectedLanguages),
+    cbseLanguageRuleWarning: request.cbseLanguageRuleWarning || "",
+    cbseLanguageValidationStatus: request.cbseLanguageValidationStatus || "",
     weakSubjects: request.weakSubjects || "",
     learningGoal: request.learningGoal || "",
     status: request.status as Exclude<AccessStatus, "guest">,
@@ -532,6 +572,9 @@ function requestPatchToPrisma(patch: Partial<AccessRequest>) {
     r2Language: patch.r2Language,
     r3Language: patch.r3Language,
     regionalLanguage: patch.regionalLanguage,
+    selectedLanguages: parseJson(patch.selectedLanguages),
+    cbseLanguageRuleWarning: patch.cbseLanguageRuleWarning,
+    cbseLanguageValidationStatus: patch.cbseLanguageValidationStatus,
     canDownloadMaterials: patch.canDownloadMaterials,
     canUploadMaterials: patch.canUploadMaterials,
     canUseAI: patch.canUseAI,
@@ -653,6 +696,9 @@ async function upsertPostgresAccess(request: AccessRequest) {
       r2Language: request.r2Language,
       r3Language: request.r3Language,
       regionalLanguage: request.regionalLanguage,
+      selectedLanguages: parseJson(request.selectedLanguages),
+      cbseLanguageRuleWarning: request.cbseLanguageRuleWarning,
+      cbseLanguageValidationStatus: request.cbseLanguageValidationStatus,
       weakSubjects: request.weakSubjects,
       learningGoal: request.learningGoal,
       status: request.status,
@@ -748,6 +794,9 @@ async function upsertApprovedUser(request: Awaited<ReturnType<typeof prisma.acce
     r2Language: request.r2Language,
     r3Language: request.r3Language,
     regionalLanguage: request.regionalLanguage,
+    selectedLanguages: parseJson(request.selectedLanguages),
+    cbseLanguageRuleWarning: request.cbseLanguageRuleWarning,
+    cbseLanguageValidationStatus: request.cbseLanguageValidationStatus,
     weakSubjects: request.weakSubjects,
     learningGoal: request.learningGoal,
   };
@@ -792,6 +841,9 @@ function migrateAccessRequest(request: Partial<AccessRequest>): AccessRequest {
     r2Language: request.r2Language || "",
     r3Language: request.r3Language || "",
     regionalLanguage: request.regionalLanguage || "",
+    selectedLanguages: request.selectedLanguages || "",
+    cbseLanguageRuleWarning: request.cbseLanguageRuleWarning || "",
+    cbseLanguageValidationStatus: request.cbseLanguageValidationStatus || "",
     weakSubjects: request.weakSubjects || "",
     learningGoal: request.learningGoal || "",
     status,
