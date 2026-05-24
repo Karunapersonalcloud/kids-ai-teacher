@@ -3,6 +3,7 @@ import { ArrowRight, BookMarked, Brain, CheckCircle2, ClipboardList, FileUp, Gra
 import { DemoVideo } from "./demo-video";
 import { GradeDemoClass } from "./grade-demo-class";
 import { ParentPreview } from "./parent-preview";
+import { DemoRequestPreview } from "./demo-request-preview";
 
 const learningSteps = [
   ["Check Current Level", "Before learning, we check what the student already knows.", Brain],
@@ -68,6 +69,7 @@ export function DemoPage({ hasDemoVideo, hasDemoPoster }: { hasDemoVideo: boolea
 
       <div className="mx-auto grid max-w-7xl gap-6 px-5 pb-10">
         <DemoVideo hasVideo={hasDemoVideo} hasPoster={hasDemoPoster} />
+        <DemoRequestPreview />
         <GradeDemoClass />
 
         <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-purple-100">
