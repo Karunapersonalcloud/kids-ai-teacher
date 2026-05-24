@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "@/components/shared/app-shell";
 import { SubjectActions } from "@/components/subjects/subject-actions";
+import { listChaptersForGradeSubject } from "@/lib/chapter-catalog";
 import { children, getChild, getSubjectBySlug } from "@/lib/mock-data";
 import { readUploadRecords } from "@/lib/local-uploads";
 import type { ChildId } from "@/lib/types";
@@ -18,6 +19,8 @@ export default async function SubjectDetailPage({
   const childProfile = getChild(childId);
   const subject = getSubjectBySlug(subjectSlug);
   const Icon = subject.icon;
+  const catalogSubjectName = subject.name === "Maths" ? "Mathematics" : subject.name;
+  const masteryChapters = listChaptersForGradeSubject(childProfile.grade, catalogSubjectName);
   const uploadRecords = await readUploadRecords();
   const subjectNames = new Set([subject.name, subject.slug, subject.name.replace("Maths", "Mathematics")].map((item) => item.toLowerCase()));
   const uploadedMaterials = uploadRecords.filter((upload) => upload.childId === childId && subjectNames.has(upload.subject.toLowerCase()));
@@ -46,13 +49,25 @@ export default async function SubjectDetailPage({
         <section className="rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-xl font-black text-purple-700">Chapters & Topics</h2>
           <div className="grid gap-3 md:grid-cols-2">
-            {subject.chapters.map((chapter) => (
+            {(masteryChapters.length ? masteryChapters : subject.chapters).map((chapterItem) => {
+              const chapter = typeof chapterItem === "string" ? chapterItem : chapterItem.chapter;
+              const chapterId = typeof chapterItem === "string" ? undefined : chapterItem.chapterId;
+              return (
               <article key={chapter} className="rounded-2xl bg-slate-50 p-4">
                 <h3 className="font-black">{chapter}</h3>
-                <p className="mt-2 text-sm font-semibold text-slate-500">Not started yet. AI teacher can rebuild prerequisites before this topic.</p>
+                <p className="mt-2 text-sm font-semibold text-slate-500">
+                  Start with pre-check, then learn visually, practice, and take a strict 95% mastery exam.
+                </p>
                 <SubjectActions childId={childId} subject={subject.name} subjectSlug={subject.slug} chapter={chapter} />
+                <Link
+                  href={`/subjects/${subject.slug}/chapters/${encodeURIComponent(chapter.toLowerCase().replaceAll(" ", "-"))}?child=${childId}${chapterId ? `&chapterId=${chapterId}` : ""}`}
+                  className="mt-3 inline-flex rounded-xl bg-purple-600 px-4 py-2 text-sm font-black text-white"
+                >
+                  Open mastery flow
+                </Link>
               </article>
-            ))}
+              );
+            })}
             {importedChapters.map((material) => (
               <article key={material.id} className="rounded-2xl border border-purple-100 bg-purple-50 p-4">
                 <div className="mb-2 flex flex-wrap items-center gap-2">

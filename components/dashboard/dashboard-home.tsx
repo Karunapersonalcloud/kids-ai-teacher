@@ -1,262 +1,269 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import {
+  ArrowRight,
   BookOpen,
-  CalendarDays,
-  ChevronRight,
-  Clock3,
-  LineChart,
-  MessageCircle,
-  MoreVertical,
-  Settings,
-  Star,
-  Trophy,
+  ClipboardCheck,
+  FileText,
+  Target,
   UploadCloud,
-  Users,
 } from "lucide-react";
 import { AppShell } from "@/components/shared/app-shell";
-import { children, getSubjectsForChild, mockUploads } from "@/lib/mock-data";
-import type { ChildId, ProgressRecord } from "@/lib/types";
+import { children, getSubjectsForChild } from "@/lib/mock-data";
+import type { ChildId } from "@/lib/types";
 
-const plan = [
-  { title: "Maths", sub: "Chapter 3: Fractions", status: "Completed", badge: "bg-green-100 text-green-700" },
-  { title: "Science", sub: "Chapter 2: Our Environment", status: "In Progress", badge: "bg-orange-100 text-orange-700" },
-  { title: "English", sub: "Grammar: Nouns", status: "Pending", badge: "bg-purple-100 text-purple-700" },
-  { title: "Daily Quiz", sub: "10 Questions", status: "Start Now", badge: "bg-blue-100 text-blue-700" },
-];
+const tabs = ["Learn", "Homework", "Exams", "Progress", "Materials"] as const;
+
+const childPlans: Record<ChildId, { chapter: string; subject: string; mastery: number; weak: string[]; action: string; risk: string }> = {
+  jayadeep: {
+    subject: "Mathematics",
+    chapter: "Polynomials",
+    mastery: 58,
+    weak: ["Fractions", "Algebra basics", "Word problems"],
+    action: "Complete chapter pre-check before lesson",
+    risk: "Medium",
+  },
+  harini: {
+    subject: "EVS",
+    chapter: "Animals Around Us",
+    mastery: 64,
+    weak: ["Reading fluency", "Animal homes"],
+    action: "Upload homework photo and take a 5-question practice",
+    risk: "Low",
+  },
+};
 
 export function DashboardHome() {
   const [selectedChildId, setSelectedChildId] = useState<ChildId>("jayadeep");
-  const [progressRecords, setProgressRecords] = useState<ProgressRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Learn");
   const selectedChild = children.find((child) => child.id === selectedChildId) || children[0];
-  const childSubjects = getSubjectsForChild(selectedChildId);
-  const selectedProgress = progressRecords.find((record) => record.childId === selectedChildId);
-
-  useEffect(() => {
-    fetch("/api/progress")
-      .then((response) => response.json())
-      .then((data: { progress?: ProgressRecord[] }) => setProgressRecords(data.progress || []))
-      .catch(() => undefined);
-  }, []);
+  const subjects = useMemo(() => getSubjectsForChild(selectedChildId), [selectedChildId]);
+  const plan = childPlans[selectedChildId];
 
   return (
     <AppShell activeChildAvatar={selectedChild.avatar}>
-      <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
-        <section className="space-y-5">
-          <div className="grid gap-5 lg:grid-cols-[1fr_420px]">
-            <section className="rounded-2xl bg-white p-5 shadow-sm">
-              <h2 className="mb-4 font-black text-purple-700">♡ My Children</h2>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {children.map((child) => (
-                  <button
-                    key={child.id}
-                    onClick={() => setSelectedChildId(child.id)}
-                    className={`relative rounded-2xl p-5 text-center shadow-sm ring-1 transition hover:scale-[1.01] ${
-                      child.id === "jayadeep" ? "bg-blue-50 ring-blue-100" : "bg-pink-50 ring-pink-100"
-                    } ${selectedChildId === child.id ? "outline outline-2 outline-purple-400" : ""}`}
-                  >
-                    <div className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-yellow-400 text-white">
-                      <Trophy className="h-4 w-4 fill-white" />
-                    </div>
-                    <div className="mx-auto mb-3 flex h-24 w-24 items-center justify-center rounded-full bg-white text-6xl shadow-sm">{child.avatar}</div>
-                    <div className="text-sm font-black uppercase text-purple-600">{child.role}</div>
-                    <div className="text-2xl font-black">{child.name}</div>
-                    <div className="mx-auto mt-2 inline-flex rounded-full bg-purple-600 px-4 py-1 text-xs font-bold text-white">{child.grade}</div>
-                    <div className="mt-3 text-sm font-bold text-purple-700">Level {child.level}</div>
-                    <p className="mx-auto mt-2 max-w-[240px] text-xs font-semibold leading-5 text-slate-500">{child.focus}</p>
-                  </button>
-                ))}
-              </div>
-              <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-purple-300 py-3 font-semibold text-purple-600 hover:bg-purple-50">
-                + Add Another Child
-              </button>
-            </section>
-
-            <section className="rounded-2xl bg-white p-5 shadow-sm">
-              <h2 className="mb-4 flex items-center gap-2 font-black text-purple-700">
-                <CalendarDays className="h-5 w-5" /> Today’s Plan
+      <div className="mx-auto max-w-7xl space-y-5">
+        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-purple-100 md:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-bold text-purple-700">ConceptKid parent workspace</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
+                Today, focus on one clear next step.
               </h2>
-              <div className="space-y-3">
-                {plan.map((item) => (
-                  <div key={item.title} className="flex items-center gap-4 rounded-2xl bg-slate-50 p-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-500 text-white">
-                      <BookOpen className="h-6 w-6" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-black">{item.title}</div>
-                      <div className="truncate text-sm text-slate-500">{item.sub}</div>
-                    </div>
-                    <span className={`rounded-full px-4 py-2 text-xs font-bold ${item.badge}`}>{item.status}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-
-          <section className="rounded-2xl bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 font-black text-purple-700">
-                <BookOpen className="h-5 w-5" /> My Subjects
-              </h2>
-              <Link href="/subjects" className="rounded-full bg-blue-50 px-4 py-2 text-sm font-bold text-blue-600">
-                View All ›
-              </Link>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+                Visual learning stays friendly, but diagnostics and chapter exams are strict. Target mastery is 95% before moving to the next chapter.
+              </p>
             </div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
-              {childSubjects.map((subject) => {
-                const Icon = subject.icon;
-                return (
-                  <Link
-                    key={subject.slug}
-                    href={`/subjects/${subject.slug}?child=${selectedChildId}`}
-                    className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-4 font-black transition hover:scale-[1.01] ${subject.bg} ${subject.color} ${subject.border}`}
-                  >
-                    <Icon className="h-5 w-5" /> {subject.name}
-                  </Link>
-                );
-              })}
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <Metric label="Target" value="95%" />
+              <Metric label="Current" value={`${plan.mastery}%`} />
+              <Metric label="Risk" value={plan.risk} />
             </div>
-          </section>
-
-          <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
-            <section className="rounded-2xl bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="flex items-center gap-2 font-black text-purple-700">
-                  <UploadCloud className="h-5 w-5" /> Upload & Study Materials
-                </h2>
-                <Link href="/uploads" className="rounded-full bg-blue-50 px-3 py-1 text-sm font-bold text-blue-600">
-                  Open Uploads
-                </Link>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-[230px_1fr]">
-                <Link href="/uploads" className="flex min-h-[190px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 p-4 text-center hover:bg-blue-100">
-                  <UploadCloud className="mb-3 h-14 w-14 text-blue-500" />
-                  <div className="font-black text-blue-700">Upload learning files</div>
-                  <div className="mt-2 text-sm text-blue-600">PDF, PPTX, DOCX, images, TXT</div>
-                </Link>
-                <div className="space-y-2">
-                  {mockUploads.slice(0, 4).map((file) => (
-                    <div key={file.id} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500 text-xs font-black text-white">{file.fileName.split(".").pop()?.toUpperCase()}</div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-black">{file.fileName}</div>
-                        <div className="text-xs text-slate-500">{file.materialType} • {file.status}</div>
-                      </div>
-                      <MoreVertical className="h-4 w-4 text-slate-400" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="flex items-center gap-2 font-black text-purple-700">
-                  <LineChart className="h-5 w-5" /> Progress Overview
-                </h2>
-                <Link href="/progress" className="rounded-full bg-slate-50 px-4 py-2 text-sm font-bold">
-                  This Week
-                </Link>
-              </div>
-              <div className="space-y-5">
-              {childSubjects.slice(0, 4).map((subject) => {
-                const Icon = subject.icon;
-                const completed = selectedProgress?.lessonsCompleted.filter((lesson) => lesson.startsWith(subject.name)).length || 0;
-                const revised = selectedProgress?.topicsRevised.filter((topic) => topic.startsWith(subject.name)).length || 0;
-                const value = Math.min(100, (completed + revised) * 15);
-                return (
-                    <div key={subject.slug} className="grid grid-cols-[130px_1fr_42px] items-center gap-3">
-                      <div className="flex items-center gap-2 font-black">
-                        <Icon className="h-5 w-5 text-purple-500" /> {subject.name}
-                      </div>
-                      <div className="h-2.5 rounded-full bg-slate-100">
-                        <div className="h-2.5 rounded-full bg-purple-500" style={{ width: `${value}%` }} />
-                      </div>
-                      <div className="text-right font-black">{value ? `${value}%` : "New"}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-6 rounded-xl bg-green-50 py-3 text-center font-black text-green-700">
-                🏆 {selectedProgress?.starsEarned ? `${selectedProgress.starsEarned} stars earned. Keep it up!` : "Start a lesson or quiz to earn stars!"} 🎉
-              </div>
-            </section>
           </div>
         </section>
 
-        <aside className="space-y-5">
-          <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 p-5 text-white shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-2xl font-black">Ask AI Teacher</h2>
-                <p className="mt-2 text-white/90">Get help, explanations & clear your doubts!</p>
+        <section className="rounded-3xl bg-white p-3 shadow-sm ring-1 ring-purple-100">
+          {children.length > 1 ? (
+            <div className="flex flex-wrap gap-2">
+              {children.map((child) => {
+                const active = child.id === selectedChildId;
+                return (
+                  <button
+                    key={child.id}
+                    onClick={() => setSelectedChildId(child.id)}
+                    className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition ${
+                      active ? "bg-purple-600 text-white shadow-sm" : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span className="text-2xl">{child.avatar}</span>
+                    <span>
+                      <span className="block text-sm font-black">{child.name}</span>
+                      <span className={`block text-xs font-semibold ${active ? "text-purple-100" : "text-slate-500"}`}>{child.grade}</span>
+                    </span>
+                  </button>
+                );
+              })}
+              <Link href="/register" className="ml-auto rounded-2xl border border-dashed border-purple-200 px-4 py-3 text-sm font-black text-purple-700 hover:bg-purple-50">
+                + Add Another Child
+              </Link>
+            </div>
+          ) : (
+            <ChildSummary child={selectedChild} />
+          )}
+        </section>
+
+        <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
+          <main className="space-y-5">
+            <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-purple-100">
+              <div className="flex gap-2 overflow-x-auto border-b border-slate-100 p-3">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`shrink-0 rounded-2xl px-4 py-2 text-sm font-black ${
+                      activeTab === tab ? "bg-purple-600 text-white" : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-400 text-3xl font-black">?</div>
-            </div>
-            <div className="my-3 flex justify-end text-8xl">🤖</div>
-            <Link href="/ai-teacher" className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 font-black text-purple-700 shadow-sm">
-              <MessageCircle className="h-5 w-5" /> Start Chat
-            </Link>
-          </section>
+              <div className="p-5 md:p-6">
+                {activeTab === "Learn" && <LearnTab childId={selectedChildId} plan={plan} subjects={subjects.slice(0, 4)} />}
+                {activeTab === "Homework" && <HomeworkTab />}
+                {activeTab === "Exams" && <ExamsTab />}
+                {activeTab === "Progress" && <ProgressTab plan={plan} />}
+                {activeTab === "Materials" && <MaterialsTab />}
+              </div>
+            </section>
+          </main>
 
-          <section className="rounded-2xl bg-amber-50 p-5 shadow-sm">
-            <h2 className="mb-3 font-black text-orange-700">💡 Today’s Quote</h2>
-            <div className="flex items-center gap-4">
-              <p className="flex-1 font-semibold leading-6">
-                The beautiful thing about learning is that no one can take it away from you.
-                <br />
-                <span className="text-sm text-slate-500">– B.B. King</span>
+          <aside className="space-y-5">
+            <ActionCard
+              href="/diagnostic"
+              icon={Target}
+              title="Baseline diagnostic"
+              text="Check the current level honestly before learning starts."
+              tone="purple"
+            />
+            <ActionCard
+              href="/homework"
+              icon={UploadCloud}
+              title="Upload homework"
+              text="Check notebook pages, worksheets, and answer photos."
+              tone="blue"
+            />
+            <ActionCard
+              href="/exams"
+              icon={ClipboardCheck}
+              title="Exam preparation"
+              text="Enter teacher-given portions and create a focused plan."
+              tone="green"
+            />
+            <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-purple-100">
+              <h3 className="text-sm font-black text-slate-950">Weak areas</h3>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {plan.weak.map((item) => (
+                  <span key={item} className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-800">
+                    {item}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+                Below 95% means revision first. The app creates a backlog plan and retest path.
               </p>
-              <div className="text-6xl">⭐</div>
-            </div>
-          </section>
-
-          <section className="rounded-2xl bg-white p-5 shadow-sm">
-            <h2 className="mb-4 flex items-center gap-2 text-xl font-black text-purple-700">
-              <Users className="h-5 w-5" /> Parent Dashboard
-            </h2>
-            <div className="grid grid-cols-2 gap-3">
-              <Link href="/parent/ai-review" className="rounded-xl bg-green-50 p-4">
-                <div className="font-black">AI Learning Health Check</div>
-                <div className="mt-2 text-xs text-slate-500">Missing uploads and weak area alerts</div>
-                <LineChart className="ml-auto mt-2 h-8 w-8 text-green-500" />
-              </Link>
-              <Link href="/parent" className="rounded-xl bg-purple-50 p-4">
-                <div className="font-black">Study Reports</div>
-                <div className="mt-2 text-xs text-slate-500">Detailed reports & analytics</div>
-              </Link>
-              <Link href="/parent" className="rounded-xl bg-blue-50 p-4">
-                <div className="font-black">Screen Time</div>
-                <div className="mt-2 text-xs text-slate-500">Manage usage & limits</div>
-                <Clock3 className="ml-auto mt-2 h-8 w-8 text-blue-500" />
-              </Link>
-              <Link href="/parent" className="rounded-xl bg-orange-50 p-4">
-                <div className="font-black">Settings</div>
-                <div className="mt-2 text-xs text-slate-500">Profiles & preferences</div>
-                <Settings className="ml-auto mt-2 h-8 w-8 text-orange-500" />
-              </Link>
-            </div>
-            <Link href="/parent" className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-purple-300 py-3 font-black text-purple-700 hover:bg-purple-50">
-              Go to Parent Panel <ChevronRight className="h-5 w-5" />
-            </Link>
-          </section>
-        </aside>
+            </section>
+          </aside>
+        </div>
       </div>
-
-      <footer className="mt-5 flex flex-col gap-3 rounded-2xl bg-white px-5 py-4 shadow-sm md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-3 text-slate-600">
-          <Star className="h-6 w-6 fill-yellow-400 text-yellow-400" /> Keep learning every day and become a super star! 🌟
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="font-bold text-purple-700">🎁 Next Reward in 3 Stars</span>
-          <div className="h-2 w-32 rounded-full bg-slate-100">
-            <div className="h-2 w-20 rounded-full bg-green-500" />
-          </div>
-          <span className="rounded-full bg-slate-50 px-4 py-2 font-black">7 / 10</span>
-        </div>
-      </footer>
     </AppShell>
+  );
+}
+
+function ChildSummary({ child }: { child: (typeof children)[number] }) {
+  return (
+    <div className="flex items-center gap-3 px-2 py-1">
+      <span className="text-3xl">{child.avatar}</span>
+      <div>
+        <div className="text-sm font-black text-slate-950">{child.name}</div>
+        <div className="text-xs font-semibold text-slate-500">{child.grade} · {child.focus}</div>
+      </div>
+    </div>
+  );
+}
+
+function LearnTab({ childId, plan, subjects }: { childId: ChildId; plan: (typeof childPlans)[ChildId]; subjects: ReturnType<typeof getSubjectsForChild> }) {
+  return (
+    <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
+      <div className="rounded-3xl bg-slate-50 p-5">
+        <div className="flex items-center gap-2 text-sm font-black text-purple-700">
+          <BookOpen className="h-4 w-4" /> Today&apos;s learning target
+        </div>
+        <h3 className="mt-2 text-2xl font-black text-slate-950">{plan.subject}: {plan.chapter}</h3>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{plan.action}. Start with a pre-check, learn visually, practice, then take the chapter exam.</p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Link href={`/chapters?childId=${childId}`} className="rounded-2xl bg-purple-600 px-4 py-2 text-sm font-black text-white">Open chapter flow</Link>
+          <Link href="/ai-teacher" className="rounded-2xl bg-white px-4 py-2 text-sm font-black text-slate-700 ring-1 ring-slate-200">Ask AI Teacher</Link>
+        </div>
+      </div>
+      <div className="rounded-3xl bg-white p-5 ring-1 ring-slate-100">
+        <div className="text-sm font-black text-slate-950">Subjects</div>
+        <div className="mt-3 space-y-2">
+          {subjects.map((subject) => (
+            <Link key={subject.slug} href={`/subjects/${subject.slug}?child=${childId}`} className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2 text-sm font-black text-slate-700">
+              {subject.name}
+              <ArrowRight className="h-4 w-4 text-slate-400" />
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HomeworkTab() {
+  return <SimpleFlow icon={UploadCloud} title="Homework verification" text="Upload notebook pages, worksheets, or answer photos. OCR and review status will show correct, needs correction, incomplete, or unclear." href="/homework" action="Open homework" />;
+}
+
+function ExamsTab() {
+  return <SimpleFlow icon={FileText} title="Exam preparation from school portions" text="Enter exam date, chapters, marks/weightage, or upload a portion photo. ConceptKid creates a daily plan toward 95% readiness." href="/exams" action="Create exam plan" />;
+}
+
+function ProgressTab({ plan }: { plan: (typeof childPlans)[ChildId] }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between text-sm font-black">
+        <span>Current chapter mastery</span>
+        <span>{plan.mastery}% / 95%</span>
+      </div>
+      <div className="mt-3 h-3 rounded-full bg-slate-100">
+        <div className="h-3 rounded-full bg-purple-600" style={{ width: `${Math.min(plan.mastery, 100)}%` }} />
+      </div>
+      <p className="mt-4 rounded-2xl bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800">
+        You are close. Strengthen the weak concepts, then retake the chapter exam. Next chapter unlocks after 95%.
+      </p>
+    </div>
+  );
+}
+
+function MaterialsTab() {
+  return <SimpleFlow icon={UploadCloud} title="Materials and textbooks" text="Upload authorized textbooks, chapter photos, worksheets, PPTs, and notes. AI uses indexed material first for textbook-grounded teaching." href="/uploads" action="Open materials" />;
+}
+
+function SimpleFlow({ icon: Icon, title, text, href, action }: { icon: React.ComponentType<{ className?: string }>; title: string; text: string; href: string; action: string }) {
+  return (
+    <div className="rounded-3xl bg-slate-50 p-5">
+      <Icon className="h-6 w-6 text-purple-600" />
+      <h3 className="mt-3 text-xl font-black text-slate-950">{title}</h3>
+      <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">{text}</p>
+      <Link href={href} className="mt-4 inline-flex rounded-2xl bg-purple-600 px-4 py-2 text-sm font-black text-white">{action}</Link>
+    </div>
+  );
+}
+
+function ActionCard({ href, icon: Icon, title, text, tone }: { href: string; icon: React.ComponentType<{ className?: string }>; title: string; text: string; tone: "purple" | "blue" | "green" }) {
+  const tones = {
+    purple: "bg-purple-50 text-purple-700",
+    blue: "bg-blue-50 text-blue-700",
+    green: "bg-green-50 text-green-700",
+  };
+  return (
+    <Link href={href} className={`block rounded-3xl p-5 shadow-sm ring-1 ring-white/70 ${tones[tone]}`}>
+      <Icon className="h-6 w-6" />
+      <h3 className="mt-3 text-sm font-black">{title}</h3>
+      <p className="mt-1 text-xs font-semibold leading-5 opacity-80">{text}</p>
+    </Link>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  const isRisk = label === "Risk";
+  return (
+    <div className={`min-w-[86px] rounded-2xl px-3 py-2 ${isRisk ? "bg-amber-50 text-amber-800" : "bg-purple-50 text-purple-700"}`}>
+      <div className="text-[10px] font-black uppercase tracking-wide opacity-70">{label}</div>
+      <div className="text-lg font-black">{value}</div>
+    </div>
   );
 }
