@@ -9,11 +9,15 @@ export function SubjectActions({
   subject,
   subjectSlug,
   chapter,
+  chapterNumber,
+  concept,
 }: {
   childId: ChildId;
   subject: string;
   subjectSlug: string;
   chapter: string;
+  chapterNumber?: number;
+  concept?: string;
 }) {
   const [message, setMessage] = useState("");
 
@@ -35,7 +39,10 @@ export function SubjectActions({
         >
           Teach this topic
         </button>
-        <Link href={`/visual-learning?topic=${encodeURIComponent(chapter)}&subject=${subjectSlug}&child=${childId}`} className="rounded-full bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">
+        <Link
+          href={`/visual-learning?subject=${subjectSlug}&child=${childId}${chapterNumber ? `&chapter=${chapterNumber}` : ""}${concept ? `&concept=${encodeURIComponent(concept)}` : `&topic=${encodeURIComponent(chapter)}`}`}
+          className="rounded-full bg-blue-50 px-3 py-2 text-xs font-black text-blue-700"
+        >
           Create visual lesson
         </Link>
         <Link href={`/quizzes?subject=${subjectSlug}&child=${childId}`} className="rounded-full bg-green-50 px-3 py-2 text-xs font-black text-green-700">

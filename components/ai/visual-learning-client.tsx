@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
+import { VisualLessonPlayer } from "@/components/learning/visual-lesson-player";
 import { AppShell } from "@/components/shared/app-shell";
 import { ChildSelect } from "@/components/shared/controls";
 import {
@@ -41,8 +42,8 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
   const subjectOptions = useMemo(() => getSubjectOptions(childId), [childId]);
   const chapters = useMemo(() => getChaptersForGradeSubject(child.grade, subject), [child.grade, subject]);
   const selectedChapter = getChapterByNumber(child.grade, subject, chapterNumber);
-  const conceptOptions = selectedChapter.concepts;
-  const selectedConcept = conceptOptions.includes(concept) ? concept : conceptOptions[0] || "Introduction";
+  const conceptOptions = ["All Concepts", ...selectedChapter.concepts];
+  const selectedConcept = conceptOptions.includes(concept) ? concept : "All Concepts";
 
   async function createLesson() {
     setLoading(true);
@@ -58,6 +59,7 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
         chapterNumber: selectedChapter.number,
         chapterName: selectedChapter.name,
         conceptName: selectedConcept,
+        concepts: selectedChapter.concepts,
         topic: selectedConcept,
       }),
     });
@@ -84,7 +86,7 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
                 childId: nextChild,
                 subject: nextSubject,
                 chapterNumber: nextChapter.number,
-                concept: nextChapter.concepts[0] || "Introduction",
+                concept: "All Concepts",
               });
             }}
           />
@@ -97,7 +99,7 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
                 childId,
                 subject: nextSubject,
                 chapterNumber: nextChapter.number,
-                concept: nextChapter.concepts[0] || "Introduction",
+                concept: "All Concepts",
               });
             }}
             options={subjectOptions}
@@ -109,12 +111,11 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
               value={chapterNumber}
               onChange={(event) => {
                 const nextChapterNumber = Number(event.target.value);
-                const nextChapter = getChapterByNumber(child.grade, subject, nextChapterNumber);
                 setSelection({
                   childId,
                   subject,
                   chapterNumber: nextChapterNumber,
-                  concept: nextChapter.concepts[0] || "Introduction",
+                  concept: "All Concepts",
                 });
               }}
             >
@@ -145,60 +146,11 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
         </div>
       </section>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1.2fr_.8fr]">
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
-          <h2 className="mb-3 font-black text-purple-700">Simple Overview</h2>
-          <p className="text-lg font-semibold leading-8 text-slate-700">{lesson.simpleExplanation}</p>
-        </section>
-        <section className="rounded-2xl bg-amber-50 p-5 shadow-sm">
-          <h2 className="mb-3 font-black text-orange-700">Remember This</h2>
-          <p className="font-semibold leading-7 text-slate-700">{lesson.memoryTrick}</p>
-        </section>
-      </div>
+      <VisualLessonPlayer lesson={lesson} grade={child.grade} board={board} subject={subject} chapter={selectedChapter} selectedConcept={selectedConcept} source="Catalog / uploaded material aware" />
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {lesson.visualSteps.map((step) => (
-          <section key={step.title} className="rounded-2xl bg-white p-5 shadow-sm">
-            <div className="mb-3 text-5xl">{step.icon}</div>
-            <h3 className="font-black text-slate-900">{step.title}</h3>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{step.description}</p>
-          </section>
-        ))}
-      </div>
-
-      <div className="mt-5 grid gap-5 lg:grid-cols-3">
-        <section className="rounded-2xl bg-green-50 p-5 shadow-sm">
-          <h2 className="mb-3 font-black text-green-700">Real-life Example</h2>
-          <p className="font-semibold leading-7">{lesson.realLifeExample}</p>
-        </section>
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
-          <h2 className="mb-3 font-black text-purple-700">Vocabulary</h2>
-          <div className="space-y-2">
-            {lesson.vocabulary.map((item) => (
-              <div key={item.word} className="rounded-xl bg-slate-50 p-3">
-                <div className="font-black">{item.word}</div>
-                <div className="text-sm text-slate-500">{item.meaning}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
-          <h2 className="mb-3 font-black text-purple-700">Mini Quiz</h2>
-          {lesson.quiz.map((item) => (
-            <div key={item.question}>
-              <p className="font-bold">{item.question}</p>
-              <div className="mt-3 grid gap-2">
-                {item.options.map((option) => (
-                  <div key={option} className="rounded-xl bg-purple-50 px-3 py-2 text-sm font-bold text-purple-700">{option}</div>
-                ))}
-              </div>
-            </div>
-          ))}
-          <button className="mt-4 inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-3 font-black text-white">
-            <Sparkles className="h-5 w-5" /> Ask AI to simplify more
-          </button>
-        </section>
-      </div>
+      <button className="mt-5 inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-3 font-black text-white">
+        <Sparkles className="h-5 w-5" /> Ask AI to simplify more
+      </button>
     </AppShell>
   );
 }
@@ -279,7 +231,8 @@ function resolveChapterParam(chapterParam: string | null, topicParam: string | n
 }
 
 function resolveConceptParam(conceptParam: string | null, chapter: LearningChapter) {
-  if (!conceptParam) return chapter.concepts[0] || "Introduction";
+  if (!conceptParam) return "All Concepts";
   const lower = conceptParam.toLowerCase();
+  if (lower === "all" || lower === "all concepts") return "All Concepts";
   return chapter.concepts.find((concept) => concept.toLowerCase() === lower || concept.toLowerCase().includes(lower) || lower.includes(concept.toLowerCase())) || chapter.concepts[0] || conceptParam;
 }

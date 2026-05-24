@@ -123,12 +123,16 @@ const catalog: Record<number, LearningSubjectCatalog> = {
       { number: 1, name: "Number Systems", concepts: ["Real Numbers", "Irrational Numbers", "Decimal Expansion", "Laws of Exponents"] },
       { number: 2, name: "Polynomials", concepts: ["Introduction to Polynomials", "Degree of a Polynomial", "Types of Polynomials", "Zeroes of a Polynomial", "Remainder Theorem", "Factor Theorem", "Algebraic Identities"] },
       { number: 3, name: "Coordinate Geometry", concepts: ["Cartesian Plane", "Coordinates of a Point", "Quadrants", "Plotting Points"] },
+      { number: 4, name: "Linear Equations in Two Variables", concepts: ["Linear equation form", "Solutions of a linear equation", "Graph of a linear equation", "Applications"] },
+      { number: 5, name: "Introduction to Euclid's Geometry", concepts: ["Definitions", "Axioms", "Postulates", "Theorems"] },
+      { number: 6, name: "Lines and Angles", concepts: ["Pairs of angles", "Parallel lines", "Transversal", "Angle sum property"] },
+      { number: 7, name: "Triangles", concepts: ["Congruence", "Criteria", "Properties", "Inequalities"] },
     ],
     Science: namedChapters(["Matter in Our Surroundings", "Is Matter Around Us Pure", "Atoms and Molecules", "Structure of the Atom", "Motion", "Force and Laws of Motion", "Gravitation", "Work and Energy"]),
   },
   10: {
     Maths: namedChapters(["Real Numbers", "Polynomials", "Pair of Linear Equations", "Quadratic Equations", "Arithmetic Progressions", "Triangles", "Coordinate Geometry", "Trigonometry", "Circles", "Statistics"]),
-    Science: namedChapters(["Chemical Reactions", "Acids, Bases and Salts", "Metals and Non-Metals", "Carbon and Its Compounds", "Life Processes", "Control and Coordination", "Electricity", "Light", "Our Environment"]),
+    Science: namedChapters(["Chemical Reactions and Equations", "Acids, Bases and Salts", "Metals and Non-metals", "Carbon and Its Compounds", "Life Processes", "Control and Coordination", "Electricity", "Light", "Our Environment"]),
   },
 };
 

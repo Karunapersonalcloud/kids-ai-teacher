@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     chapterNumber?: number;
     chapterName?: string;
     conceptName?: string;
+    concepts?: string[];
   };
   const access = await getRequestAccess(request);
   if (access.mustChangeCredentials || access.status === "pending" || access.status === "blocked" || access.status === "rejected" || access.status === "expired") {
@@ -40,9 +41,10 @@ export async function POST(request: Request) {
   const chapterNumber = Number(body.chapterNumber) || catalogChapter.number;
   const chapterName = body.chapterName || catalogChapter.name;
   const conceptName = body.conceptName || body.topic || catalogChapter.concepts[0] || chapterName;
+  const concepts = body.concepts?.length ? body.concepts : catalogChapter.concepts;
 
   if (!process.env.OPENAI_API_KEY) {
-    return Response.json(createFallbackVisualLesson({ grade, board, subject, chapterNumber, chapterName, conceptName }));
+    return Response.json(createFallbackVisualLesson({ grade, board, subject, chapterNumber, chapterName, conceptName, concepts }));
   }
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -56,7 +58,7 @@ export async function POST(request: Request) {
       },
       {
         role: "user",
-        content: `Create a visual lesson for ${body.childName || child.name}, ${grade}, ${board}. Subject: ${subject}. Chapter ${chapterNumber}: ${chapterName}. Concept: ${conceptName}. For Class 1 to 3, use very simple words, short sentences, playful visuals, and gentle examples. For Class 4 to 5, use concept explanation, real-life examples, and simple practice. For Class 6 to 8, use structured definitions, examples, practice, and common mistakes. For Class 9 to 10, use CBSE-style explanation, formulas where needed, exam-focused examples, and competency-based questions. Jayadeep needs prerequisites when needed. Harini needs short playful explanations.`,
+        content: `Create a visual lesson for ${body.childName || child.name}, ${grade}, ${board}. Subject: ${subject}. Chapter ${chapterNumber}: ${chapterName}. Concept selection: ${conceptName}. Chapter concepts: ${concepts.join(", ")}. If concept selection is All Concepts, create a chapter overview that introduces every listed concept. For Class 1 to 3, use very simple words, short sentences, playful visuals, and gentle examples. For Class 4 to 5, use concept explanation, real-life examples, and simple practice. For Class 6 to 8, use structured definitions, examples, practice, and common mistakes. For Class 9 to 10, use CBSE-style explanation, formulas where needed, exam-focused examples, and competency-based questions. Jayadeep needs prerequisites when needed. Harini needs short playful explanations.`,
       },
     ],
   });
@@ -65,7 +67,7 @@ export async function POST(request: Request) {
   try {
     return Response.json(JSON.parse(text || "{}") as VisualLesson);
   } catch {
-    return Response.json(createFallbackVisualLesson({ grade, board, subject, chapterNumber, chapterName, conceptName }));
+    return Response.json(createFallbackVisualLesson({ grade, board, subject, chapterNumber, chapterName, conceptName, concepts }));
   }
 }
 
@@ -81,6 +83,7 @@ function createFallbackVisualLesson({
   chapterNumber,
   chapterName,
   conceptName,
+  concepts,
 }: {
   grade: string;
   board: string;
@@ -88,39 +91,41 @@ function createFallbackVisualLesson({
   chapterNumber: number;
   chapterName: string;
   conceptName: string;
+  concepts: string[];
 }): VisualLesson {
   const classNumber = Number(grade.match(/\d+/)?.[0] || 1);
   const isEarly = classNumber <= 3;
   const isMiddle = classNumber >= 6 && classNumber <= 8;
   const isHigh = classNumber >= 9;
-  const title = `Chapter ${chapterNumber}: ${chapterName} - ${conceptName}`;
+  const isAllConcepts = conceptName === "All Concepts";
+  const title = `Chapter ${chapterNumber}: ${chapterName}${isAllConcepts ? "" : ` - ${conceptName}`}`;
   const gradeLevel = `${grade} · ${subject} · ${board}`;
 
   if (isEarly) {
     return {
       title,
       gradeLevel,
-      simpleExplanation: `${conceptName} means we look at one small idea in ${chapterName}. We learn it with pictures, daily examples, and tiny steps.`,
+      simpleExplanation: isAllConcepts ? `This chapter has small ideas: ${concepts.join(", ")}. We learn them with pictures, daily examples, and tiny steps.` : `${conceptName} means we look at one small idea in ${chapterName}. We learn it with pictures, daily examples, and tiny steps.`,
       visualSteps: [
         { title: "Look", icon: "👀", description: `See ${conceptName} in a picture or object around you.` },
         { title: "Name", icon: "🏷️", description: `Say the main word clearly: ${conceptName}.` },
         { title: "Connect", icon: "🏠", description: "Connect it with home, school, food, games, plants, or animals." },
         { title: "Try", icon: "⭐", description: "Answer one small question and celebrate the effort." },
       ],
-      realLifeExample: `Think of something you see every day. That daily object can help us understand ${conceptName}.`,
+      realLifeExample: `Think of something you see every day. That daily object can help us understand ${isAllConcepts ? chapterName : conceptName}.`,
       vocabulary: [
-        { word: conceptName, meaning: `The main idea we are learning in ${chapterName}.` },
+        { word: isAllConcepts ? chapterName : conceptName, meaning: `The main idea we are learning in this lesson.` },
         { word: "Example", meaning: "Something real that helps us understand." },
       ],
-      memoryTrick: `See it, say it, and connect it. That makes ${conceptName} easy.`,
-      quiz: [{ question: `What are we learning now?`, options: [conceptName, chapterName, subject], answer: conceptName }],
+      memoryTrick: `See it, say it, and connect it. That makes the chapter easy.`,
+      quiz: [{ question: `What are we learning now?`, options: [isAllConcepts ? chapterName : conceptName, chapterName, subject], answer: isAllConcepts ? chapterName : conceptName }],
     };
   }
 
   return {
     title,
     gradeLevel,
-    simpleExplanation: `${conceptName} is an important part of ${chapterName}. Start with the meaning, connect it to a real example, then practice one step at a time.`,
+    simpleExplanation: isAllConcepts ? `${chapterName} includes these concepts: ${concepts.join(", ")}. Start with the meaning of each concept, connect it to an example, then practice one step at a time.` : `${conceptName} is an important part of ${chapterName}. Start with the meaning, connect it to a real example, then practice one step at a time.`,
     visualSteps: [
       { title: "Meaning", icon: "💡", description: `Understand what ${conceptName} means in simple words.` },
       { title: "Example", icon: "🧩", description: `Use a daily-life example to make ${conceptName} clear.` },
