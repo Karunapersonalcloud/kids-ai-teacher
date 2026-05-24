@@ -13,13 +13,13 @@ const learningSteps = [
 ] as const;
 
 const textbookExamples = [
-  ["NCERT Mathematics", "Official import possible", "bg-green-50 text-green-700"],
-  ["Collins English", "Parent upload required", "bg-amber-50 text-amber-800"],
-  ["Rachna Sagar Computer", "Parent upload required", "bg-amber-50 text-amber-800"],
-  ["School Worksheet", "Parent upload required", "bg-blue-50 text-blue-700"],
+  ["NCERT Official", "Official import can be attempted", "bg-green-50 text-green-700"],
+  ["State Board Official", "Official source link required", "bg-blue-50 text-blue-700"],
+  ["Private Publisher", "Parent upload required", "bg-amber-50 text-amber-800"],
+  ["School Worksheet", "Parent upload required", "bg-purple-50 text-purple-700"],
 ] as const;
 
-export function DemoPage() {
+export function DemoPage({ hasDemoVideo, hasDemoPoster }: { hasDemoVideo: boolean; hasDemoPoster: boolean }) {
   return (
     <main className="min-h-screen bg-[#f7f5ff] text-slate-950">
       <section className="mx-auto max-w-7xl px-5 py-6 md:py-10">
@@ -67,7 +67,7 @@ export function DemoPage() {
       </section>
 
       <div className="mx-auto grid max-w-7xl gap-6 px-5 pb-10">
-        <DemoVideo />
+        <DemoVideo hasVideo={hasDemoVideo} hasPoster={hasDemoPoster} />
         <GradeDemoClass />
 
         <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-purple-100">

@@ -1,4 +1,4 @@
-import { ArrowRight, BarChart3, CalendarCheck, CircleAlert, ClipboardCheck } from "lucide-react";
+import { ArrowRight, BarChart3, CalendarCheck, CheckCircle2, CircleAlert, ClipboardCheck } from "lucide-react";
 
 const progress = [
   { subject: "EVS", value: 70, color: "bg-green-500" },
@@ -12,14 +12,14 @@ export function ParentPreview() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">Parent dashboard preview</span>
-          <h2 className="mt-4 text-3xl font-black text-slate-950">Know what to do today</h2>
+          <h2 className="mt-4 text-3xl font-black text-slate-950">Know what happened and what to do next</h2>
         </div>
         <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-600">
-          Demo Student - Class 2
+          Demo Student - Class 2 - EVS
         </div>
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-3">
+      <div className="mt-6 grid gap-5 lg:grid-cols-4">
         <div className="rounded-3xl bg-[#f7f5ff] p-5">
           <div className="flex items-center gap-2 text-sm font-black text-purple-700">
             <CalendarCheck className="h-5 w-5" />
@@ -30,6 +30,18 @@ export function ParentPreview() {
             <li>5 practice questions</li>
             <li>1 homework check</li>
           </ul>
+        </div>
+
+        <div className="rounded-3xl bg-green-50 p-5">
+          <div className="flex items-center gap-2 text-sm font-black text-green-800">
+            <CheckCircle2 className="h-5 w-5" />
+            Learning Summary
+          </div>
+          <div className="mt-4 grid gap-2 text-sm font-bold text-green-950">
+            <span>Completed lessons: 1</span>
+            <span>Quiz score: 2/3</span>
+            <span>Topic: Animals Around Us</span>
+          </div>
         </div>
 
         <div className="rounded-3xl bg-slate-50 p-5">
@@ -58,7 +70,7 @@ export function ParentPreview() {
             Weak Areas
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            {["Word problems", "Reading comprehension"].map((item) => (
+            {["Animal homes", "Needs more practice"].map((item) => (
               <span key={item} className="rounded-full bg-white px-3 py-1 text-xs font-black text-amber-800">{item}</span>
             ))}
           </div>
@@ -67,13 +79,13 @@ export function ParentPreview() {
               <ClipboardCheck className="h-4 w-4" />
               Next Action
             </div>
-            <p className="mt-2 text-sm font-black leading-6 text-slate-800">Practice 10 questions before chapter test.</p>
+            <p className="mt-2 text-sm font-black leading-6 text-slate-800">Practice 5 questions before chapter test.</p>
           </div>
         </div>
       </div>
 
       <div className="mt-5 flex items-center justify-between rounded-2xl bg-purple-600 p-4 text-white">
-        <span className="text-sm font-black">Parent sees progress, weak areas, and the next best step.</span>
+        <span className="text-sm font-black">Mastery status: 67% now, target 95%. Actual parent reports are generated from your child&apos;s real learning activity.</span>
         <ArrowRight className="h-5 w-5" />
       </div>
     </section>
