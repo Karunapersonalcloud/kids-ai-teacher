@@ -1,6 +1,8 @@
 import { getLimitsForPlan } from "@/lib/access-control";
 import { generateTemporaryPin, readAccessRequests, updateAccessRequest } from "@/lib/access-store";
 import { hashPin } from "@/lib/credentials";
+import { sendApprovalEmail } from "@/lib/email/email-provider";
+import { buildLoginInstructions } from "@/lib/email/templates";
 import { getRequestAccess } from "@/lib/request-access";
 import { normalizeSubmittedSubjects, type SubmittedSubject } from "@/lib/student-subjects";
 import type { PlanName } from "@/lib/billing-types";
@@ -38,6 +40,24 @@ export async function PATCH(request: Request) {
   const patch = patchForAction(body.action, body);
   const updated = await updateAccessRequest(body.id, patch);
   if (!updated) return Response.json({ error: "Request not found." }, { status: 404 });
+
+  if (body.action === "approve-trial" || body.action === "approve-full") {
+    const emailResult = await sendApprovalEmail(updated);
+    const emailPatch = {
+      loginEmailSentAt: emailResult.sent ? new Date().toISOString() : undefined,
+      loginEmailStatus: emailResult.status,
+      loginEmailError: emailResult.error || "",
+    };
+    const requestWithEmailStatus = (await updateAccessRequest(body.id, emailPatch)) || updated;
+    return Response.json({
+      request: requestWithEmailStatus,
+      emailSent: emailResult.sent,
+      emailError: emailResult.error,
+      loginInstructions: buildLoginInstructions(updated),
+      message: emailResult.sent ? "Approved and login instructions emailed." : "Approved, but email not sent. Use Copy Login Instructions.",
+    });
+  }
+
   return Response.json({ request: updated });
 }
 

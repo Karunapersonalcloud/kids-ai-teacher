@@ -131,6 +131,9 @@ model AccessRequest {
   rejectedAt                   DateTime?
   blockedAt                    DateTime?
   lastLoginAt                  DateTime?
+  loginEmailSentAt             DateTime?
+  loginEmailStatus             String?
+  loginEmailError              String?
   adminNotes                   String?
   createdAt                    DateTime  @default(now())
   updatedAt                    DateTime  @updatedAt
@@ -344,7 +347,6 @@ model AdminAction {
   @@index([targetRequestId])
 }
 
-
 model DiagnosticResult {
   id                    String   @id @default(cuid())
   userId                String?
@@ -370,19 +372,19 @@ model DiagnosticResult {
 }
 
 model ChapterReadinessResult {
-  id                              String   @id @default(cuid())
-  userId                          String?
-  childId                         String
-  subject                         String
-  chapter                         String
-  readinessStatus                 String
-  score                           Int
-  total                           Int
-  percentage                      Float
-  weakPrerequisites               Json?
-  recommendedPrerequisiteLessons  Json?
-  answers                         Json?
-  createdAt                       DateTime @default(now())
+  id                             String   @id @default(cuid())
+  userId                         String?
+  childId                        String
+  subject                        String
+  chapter                        String
+  readinessStatus                String
+  score                          Int
+  total                          Int
+  percentage                     Float
+  weakPrerequisites              Json?
+  recommendedPrerequisiteLessons Json?
+  answers                        Json?
+  createdAt                      DateTime @default(now())
 
   @@index([userId])
   @@index([childId, subject, chapter])
@@ -448,7 +450,7 @@ model BacklogPlan {
 }
 
 model HomeworkSubmission {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String?
   childId     String
   subject     String?
@@ -457,14 +459,14 @@ model HomeworkSubmission {
   imageUrl    String?
   filePath    String?
   ocrText     String?
-  ocrStatus   String   @default("pending")
-  status      String   @default("submitted")
+  ocrStatus   String    @default("pending")
+  status      String    @default("submitted")
   score       Float?
   feedback    Json?
-  submittedAt DateTime @default(now())
+  submittedAt DateTime  @default(now())
   reviewedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([userId])
   @@index([childId, subject])

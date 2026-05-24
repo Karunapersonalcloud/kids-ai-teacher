@@ -87,6 +87,10 @@ PERSISTENCE_PROVIDER=json
 ADMIN_EMAIL=
 ADMIN_PIN=
 ADMIN_NAME=
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=
+EMAIL_FROM=
+APP_BASE_URL=https://conceptkid.in
 ```
 
 Never commit `.env.local` or real API keys.
@@ -115,9 +119,15 @@ GOOGLE_DRIVE_FOLDER_ID=15KLTJUjUCNrcNrYUVGRw94Q2ZmnyPXIF
 ADMIN_EMAIL=
 ADMIN_PIN=
 ADMIN_NAME=ConceptKid Admin
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=
+EMAIL_FROM=ConceptKid <no-reply@conceptkid.in>
+APP_BASE_URL=https://conceptkid.in
 ```
 
 `OPENAI_API_KEY` and `GOOGLE_DRIVE_API_KEY` are optional until those integrations are enabled for production traffic.
+
+Approval emails use Resend when configured. If `RESEND_API_KEY` or `EMAIL_FROM` is missing, approval still succeeds and the admin can use **Copy Login Instructions** manually. For development, `EMAIL_FROM=ConceptKid <onboarding@resend.dev>` can be used; for production, verify the `conceptkid.in` sender/domain in Resend first.
 
 For production, use durable services:
 

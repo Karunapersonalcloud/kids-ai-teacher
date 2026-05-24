@@ -46,6 +46,9 @@ export type AccessRequest = {
   approvedAt?: string;
   approvedBy?: string;
   lastLoginAt?: string;
+  loginEmailSentAt?: string;
+  loginEmailStatus?: string;
+  loginEmailError?: string;
   canDownloadMaterials: boolean;
   canUploadMaterials: boolean;
   canUseAI: boolean;
@@ -500,6 +503,9 @@ function accessFromRequest(request: {
   approvedAt: Date | null;
   approvedBy: string | null;
   lastLoginAt: Date | null;
+  loginEmailSentAt: Date | null;
+  loginEmailStatus: string | null;
+  loginEmailError: string | null;
   canDownloadMaterials: boolean;
   canUploadMaterials: boolean;
   canUseAI: boolean;
@@ -551,6 +557,9 @@ function accessFromRequest(request: {
     approvedAt: isoDate(request.approvedAt),
     approvedBy: request.approvedBy || undefined,
     lastLoginAt: isoDate(request.lastLoginAt),
+    loginEmailSentAt: isoDate(request.loginEmailSentAt),
+    loginEmailStatus: request.loginEmailStatus || undefined,
+    loginEmailError: request.loginEmailError || undefined,
     canDownloadMaterials: request.canDownloadMaterials,
     canUploadMaterials: request.canUploadMaterials,
     canUseAI: request.canUseAI,
@@ -584,6 +593,9 @@ function requestPatchToPrisma(patch: Partial<AccessRequest>) {
     approvedAt: optionalDate(patch.approvedAt),
     approvedBy: patch.approvedBy,
     lastLoginAt: optionalDate(patch.lastLoginAt),
+    loginEmailSentAt: optionalDate(patch.loginEmailSentAt),
+    loginEmailStatus: patch.loginEmailStatus,
+    loginEmailError: patch.loginEmailError,
     expiryDate: optionalDate(patch.expiryDate),
     adminNotes: patch.notes,
     state: patch.state,
@@ -928,6 +940,9 @@ function migrateAccessRequest(request: Partial<AccessRequest>): AccessRequest {
     approvedAt: request.approvedAt,
     approvedBy: request.approvedBy,
     lastLoginAt: request.lastLoginAt,
+    loginEmailSentAt: request.loginEmailSentAt,
+    loginEmailStatus: request.loginEmailStatus,
+    loginEmailError: request.loginEmailError,
     canDownloadMaterials: request.canDownloadMaterials ?? internal,
     canUploadMaterials: request.canUploadMaterials ?? (internal || status === "trial" || status === "active"),
     canUseAI: request.canUseAI ?? (internal || status === "trial" || status === "active"),

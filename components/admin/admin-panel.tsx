@@ -31,7 +31,12 @@ export function AdminPanel() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, action: nextAction }),
     });
-    setMessage(response.ok ? "Access updated." : "Could not update access.");
+    const data = (await response.json()) as { message?: string; emailSent?: boolean; emailError?: string; error?: string };
+    if (response.ok && (nextAction === "approve-trial" || nextAction === "approve-full")) {
+      setMessage(data.emailSent ? "Approved and login instructions emailed." : data.emailError || "Approved, but email not sent. Use Copy Login Instructions.");
+    } else {
+      setMessage(response.ok ? data.message || "Access updated." : data.error || "Could not update access.");
+    }
     await refresh();
   }
 
@@ -93,7 +98,13 @@ Please login and change your PIN on first login.`;
               <span>Must change PIN: {request.mustChangeCredentials ? "Yes" : "No"}</span>
               <span>Last login: {request.lastLoginAt ? new Date(request.lastLoginAt).toLocaleDateString() : "Never"}</span>
               <span>Download: {request.canDownloadMaterials ? "Allowed" : "Restricted"}</span>
+              <span>Email: {request.loginEmailStatus || "Not sent"}</span>
             </div>
+            {request.loginEmailStatus && (
+              <div className={`mt-4 rounded-2xl p-3 text-sm font-bold ${request.loginEmailStatus === "sent" ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-800"}`}>
+                {request.loginEmailStatus === "sent" ? "Approved and login instructions emailed." : request.loginEmailError || "Approved, but email not sent. Use Copy Login Instructions."}
+              </div>
+            )}
             <div className="mt-4 rounded-2xl bg-blue-50 p-4">
               <div className="text-xs font-black uppercase text-blue-700">Selected Languages</div>
               <div className="mt-2 grid gap-2 text-sm font-bold text-blue-900 sm:grid-cols-2">
