@@ -52,7 +52,7 @@ export function AppShell({
   return (
     <div className="min-h-screen w-full bg-slate-50 text-slate-950">
       <div className="flex min-h-screen w-full">
-        <aside className="sticky top-0 hidden h-screen w-[280px] shrink-0 border-r border-slate-200 bg-white px-4 py-5 shadow-sm lg:block">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-slate-200 bg-white px-4 py-5 shadow-sm lg:block">
           <Link href="/dashboard" className="mb-7 flex items-center rounded-2xl px-2">
             <BrandLogo />
           </Link>
@@ -91,7 +91,7 @@ export function AppShell({
           </Link>
         </aside>
 
-        <main className="min-w-0 flex-1">
+        <main className="min-w-0 w-full flex-1">
           <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 lg:px-8 xl:px-10">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex items-center gap-3">
@@ -145,11 +145,7 @@ export function AppShell({
             </nav>
           </header>
 
-          <div className="w-full px-4 py-5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
-            <div className="w-full max-w-none">
-              {pageChildren}
-            </div>
-          </div>
+          <div className="w-full max-w-none px-4 py-5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">{pageChildren}</div>
         </main>
       </div>
     </div>

@@ -26,7 +26,7 @@ export default async function SubjectChapterPage({
 
   return (
     <AppShell activeChildAvatar={child.avatar}>
-      <div className="mx-auto max-w-6xl space-y-5">
+      <div className="w-full max-w-none space-y-5">
         <header className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-purple-100">
           <p className="text-sm font-black text-purple-700">{subject.name} · {child.name} · {child.grade}</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{pack?.chapter || titleCase(chapterTitle)}</h1>
@@ -59,7 +59,7 @@ export default async function SubjectChapterPage({
           ))}
         </nav>
 
-        <section id="pre-check" className="grid gap-5 lg:grid-cols-[1fr_320px]">
+        <section id="pre-check" className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <FlowCard title="1. Pre-check" badge="Required first" text="Answer 5-10 prerequisite questions. If basics are weak, ConceptKid teaches foundation recovery before the chapter." />
           <SideNote title="Readiness states" items={["Ready", "Needs basics", "Needs revision", "High risk"]} />
         </section>

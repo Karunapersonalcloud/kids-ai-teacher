@@ -89,7 +89,7 @@ export function ExamClient({ childId, chapterId }: { childId: string; chapterId:
   if (error && !data) {
     return (
       <main className="min-h-screen bg-slate-50 p-6">
-        <div className="mx-auto max-w-2xl rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+        <div className="w-full rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
           <p className="text-sm font-semibold text-red-600">{error}</p>
           <Link href="/chapters" className="mt-3 inline-block text-sm font-semibold text-purple-700">Back to chapters</Link>
         </div>
@@ -100,7 +100,7 @@ export function ExamClient({ childId, chapterId }: { childId: string; chapterId:
   if (!data) {
     return (
       <main className="min-h-screen bg-slate-50 p-6">
-        <div className="mx-auto max-w-2xl animate-pulse rounded-3xl bg-white p-8 text-sm text-slate-500 shadow-sm ring-1 ring-slate-100">
+        <div className="w-full animate-pulse rounded-3xl bg-white p-8 text-sm text-slate-500 shadow-sm ring-1 ring-slate-100">
           Loading chapter exam…
         </div>
       </main>
@@ -111,7 +111,7 @@ export function ExamClient({ childId, chapterId }: { childId: string; chapterId:
     const passMark = result.passMark ?? data.passMark;
     return (
       <main className="min-h-screen bg-slate-50 p-4 md:p-8">
-        <div className="mx-auto max-w-3xl space-y-5">
+        <div className="w-full max-w-none space-y-5">
           <Header pack={data.pack} childName={data.child.name} />
           <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -196,7 +196,7 @@ export function ExamClient({ childId, chapterId }: { childId: string; chapterId:
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 md:p-8">
-      <div className="mx-auto max-w-3xl space-y-5">
+      <div className="w-full max-w-none space-y-5">
         <Header pack={data.pack} childName={data.child.name} />
         <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
           <div className="flex flex-wrap items-center justify-between gap-3">

@@ -28,7 +28,7 @@ export default async function DiagnosticPage({ searchParams }: { searchParams: P
   if (!children.length) {
     return (
       <main className="min-h-screen bg-slate-50 p-6">
-        <div className="mx-auto max-w-2xl rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-100">
+        <div className="w-full rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-100">
           <h1 className="text-2xl font-bold text-slate-900">No child profile found</h1>
           <p className="mt-2 text-slate-600">
             We could not find any child profile linked to your account yet. Please complete approval, or register a child to start the diagnostic.
@@ -48,7 +48,7 @@ export default async function DiagnosticPage({ searchParams }: { searchParams: P
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 md:p-8">
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="w-full max-w-none space-y-6">
         <header className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
           <Link href="/parent" className="text-sm font-semibold text-purple-700 hover:underline">← Parent Dashboard</Link>
           <h1 className="mt-3 text-2xl font-bold text-slate-900">Baseline Diagnostic</h1>

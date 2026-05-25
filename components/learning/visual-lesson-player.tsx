@@ -81,8 +81,8 @@ export function VisualLessonPlayer({
         <div className="h-full rounded-full bg-purple-600 transition-all" style={{ width: `${progress}%` }} />
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[260px_1fr]">
-        <aside className="rounded-3xl bg-slate-50 p-4">
+      <div className="mt-5 grid w-full gap-6 2xl:grid-cols-12">
+        <aside className="rounded-3xl bg-slate-50 p-4 2xl:col-span-3">
           <h3 className="text-sm font-black text-slate-700">Concept list</h3>
           <div className="mt-3 space-y-2">
             {concepts.map((item, index) => (
@@ -100,7 +100,7 @@ export function VisualLessonPlayer({
           </div>
         </aside>
 
-        <div className="space-y-4">
+        <div className="space-y-4 2xl:col-span-9">
           <article className="rounded-3xl bg-gradient-to-br from-slate-950 to-purple-950 p-6 text-white">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black">{slide.kind}</span>

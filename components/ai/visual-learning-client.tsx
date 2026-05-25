@@ -78,7 +78,7 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
       />
 
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="grid gap-4 2xl:grid-cols-[220px_220px_minmax(300px,1fr)_minmax(300px,1fr)_auto]">
+        <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
           <ChildSelect
             value={childId}
             onChange={(nextChild) => {
@@ -130,7 +130,7 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
             </select>
           </label>
           <LabeledSelect label="Concept / Topic" value={selectedConcept} onChange={(nextConcept) => setSelection({ ...selection, concept: nextConcept })} options={conceptOptions} />
-          <button onClick={createLesson} className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-slate-800">
+          <button onClick={createLesson} className="self-end rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-slate-800">
             {loading ? "Creating..." : "Create Visual Lesson"}
           </button>
         </div>

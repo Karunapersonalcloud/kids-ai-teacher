@@ -57,7 +57,7 @@ export default async function ParentDashboardPage({ searchParams }: { searchPara
   if (children.length === 0) {
     return (
       <main className="min-h-screen bg-slate-50 p-6">
-        <div className="mx-auto max-w-2xl rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-100">
+        <div className="w-full rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-100">
           <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
             <AlertTriangle className="h-3.5 w-3.5" /> No child profiles yet
           </span>
@@ -84,19 +84,19 @@ export default async function ParentDashboardPage({ searchParams }: { searchPara
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 md:p-8">
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="w-full max-w-none space-y-6">
         <Header parentName={user.parentName} childCount={children.length} />
 
         {children.length > 1 && <ChildSwitcher items={children} selectedId={selected.id} />}
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-          <div className="space-y-6">
+        <div className="grid w-full gap-6 xl:grid-cols-12">
+          <div className="space-y-6 xl:col-span-8 2xl:col-span-9">
             <ChildProfileCard child={selected} diagnostic={diagnostic} />
             <DiagnosticCallout child={selected} diagnostic={diagnostic} />
             <ChapterProgressCard childId={selected.id} chapters={chapters} mastery={mastery} />
             <TodayPlanCard diagnostic={diagnostic} />
           </div>
-          <aside className="space-y-4">
+          <aside className="space-y-4 xl:col-span-4 2xl:col-span-3">
             <SidebarAction
               href="/uploads"
               tone="purple"

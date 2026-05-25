@@ -89,8 +89,8 @@ export function DashboardHome() {
           )}
         </section>
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
-          <main className="space-y-5">
+        <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-12">
+          <main className="space-y-5 xl:col-span-8 2xl:col-span-9">
             <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
               <div className="flex gap-2 overflow-x-auto border-b border-slate-100 p-3">
                 {tabs.map((tab) => (
@@ -115,7 +115,7 @@ export function DashboardHome() {
             </section>
           </main>
 
-          <aside className="space-y-5">
+          <aside className="space-y-5 xl:col-span-4 2xl:col-span-3">
             <ActionCard
               href="/diagnostic"
               icon={Target}
@@ -171,7 +171,7 @@ function ChildSummary({ child }: { child: (typeof children)[number] }) {
 
 function LearnTab({ childId, plan, subjects }: { childId: ChildId; plan: (typeof childPlans)[ChildId]; subjects: ReturnType<typeof getSubjectsForChild> }) {
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
         <div className="flex items-center gap-2 text-sm font-black text-purple-700">
           <BookOpen className="h-4 w-4" /> Today&apos;s learning target

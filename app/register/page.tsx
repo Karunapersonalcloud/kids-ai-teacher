@@ -92,7 +92,7 @@ export default function RegisterPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 md:p-8">
-      <form onSubmit={submit} className="mx-auto max-w-5xl space-y-6">
+      <form onSubmit={submit} className="mx-auto w-full max-w-[1600px] space-y-6 px-0 lg:px-6 xl:px-10">
         <header className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <Link href="/" aria-label="Back to ConceptKid home">

@@ -29,7 +29,7 @@ export default async function ChaptersPage({ searchParams }: { searchParams: Pro
   if (children.length === 0) {
     return (
       <main className="min-h-screen bg-slate-50 p-6">
-        <div className="mx-auto max-w-2xl rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-100">
+        <div className="w-full rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-100">
           <h1 className="text-2xl font-bold text-slate-900">No child profiles yet</h1>
           <p className="mt-2 text-slate-600">Register a child first to start chapter learning.</p>
           <Link href="/register" className="mt-4 inline-block rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white">Register a child</Link>
@@ -44,7 +44,7 @@ export default async function ChaptersPage({ searchParams }: { searchParams: Pro
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 md:p-8">
-      <div className="mx-auto max-w-5xl space-y-6">
+      <div className="w-full max-w-none space-y-6">
         <header className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
           <p className="text-sm text-slate-500">Mastery Learning</p>
           <h1 className="mt-1 text-2xl font-bold text-slate-900">Chapters for {selected.name}</h1>
@@ -76,7 +76,7 @@ export default async function ChaptersPage({ searchParams }: { searchParams: Pro
             <p className="text-slate-600">Chapter packs for {selected.grade} are being added. Check back soon.</p>
           </div>
         ) : (
-          <ul className="space-y-3">
+          <ul className="grid w-full gap-4 xl:grid-cols-2 2xl:grid-cols-3">
             {chapters.map((ch) => {
               const record = mastery.find((m) => m.subject === ch.subject && m.chapter === ch.chapter);
               const status: ChapterStatus = record?.status ?? "locked";

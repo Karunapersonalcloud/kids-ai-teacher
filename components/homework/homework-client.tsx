@@ -54,7 +54,7 @@ export function HomeworkClient({ childOptions }: { childOptions: ChildOption[] }
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full max-w-none space-y-6">
       <header className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-purple-100">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>

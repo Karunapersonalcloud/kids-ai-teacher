@@ -60,7 +60,7 @@ export function ExamPlannerClient({ childOptions }: { childOptions: ChildOption[
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full max-w-none space-y-6">
       <header className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-purple-100">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
@@ -80,7 +80,7 @@ export function ExamPlannerClient({ childOptions }: { childOptions: ChildOption[
         </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[390px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
         <form onSubmit={submit} className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-purple-100">
           <CalendarDays className="h-7 w-7 text-purple-600" />
           <h2 className="mt-3 text-xl font-black text-slate-950">Create exam preparation plan</h2>

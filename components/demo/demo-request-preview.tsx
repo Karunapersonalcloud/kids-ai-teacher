@@ -60,8 +60,8 @@ export function DemoRequestPreview() {
 
   return (
     <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-purple-100">
-      <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-        <form onSubmit={generatePreview} className="rounded-3xl bg-[#f7f5ff] p-5">
+      <div className="grid gap-6 xl:grid-cols-12">
+        <form onSubmit={generatePreview} className="rounded-3xl bg-[#f7f5ff] p-5 xl:col-span-5">
           <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">Interactive visual demo</span>
           <h2 className="mt-4 text-3xl font-black text-slate-950">Select class, subject, chapter, and topic</h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{helperText}</p>
@@ -107,7 +107,7 @@ export function DemoRequestPreview() {
           <button className="mt-5 w-full rounded-2xl bg-purple-600 px-5 py-3 text-sm font-black text-white">Generate Visual Demo</button>
         </form>
 
-        <div className="rounded-3xl bg-slate-950 p-5 text-white">
+        <div className="rounded-3xl bg-slate-950 p-5 text-white xl:col-span-7">
           <h3 className="text-2xl font-black">What the limited demo includes</h3>
           <div className="mt-5 grid gap-3">
             <div className="rounded-2xl bg-white/10 p-4">

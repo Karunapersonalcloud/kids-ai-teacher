@@ -15,7 +15,7 @@ const features = [
 export function PublicLanding() {
   return (
     <main className="min-h-screen bg-[#f7f5ff] text-slate-900">
-      <section className="mx-auto max-w-7xl px-5 pt-6">
+      <section className="mx-auto w-full max-w-[1600px] px-4 pt-6 sm:px-6 lg:px-10 xl:px-16 2xl:px-20">
         <nav className="flex flex-col gap-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-purple-100 md:flex-row md:items-center md:justify-between">
           <BrandLogo />
           <div className="flex flex-wrap gap-3">
@@ -26,7 +26,7 @@ export function PublicLanding() {
         </nav>
       </section>
 
-      <section className="mx-auto grid min-h-[78vh] max-w-7xl gap-8 px-5 py-8 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
+      <section className="mx-auto grid min-h-[78vh] w-full max-w-[1600px] gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:px-10 xl:px-16 2xl:px-20">
         <div>
           <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-black text-purple-700 shadow-sm">
             <LockKeyhole className="h-4 w-4" /> Controlled access MVP
@@ -65,7 +65,7 @@ export function PublicLanding() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 pb-10">
+      <section className="mx-auto w-full max-w-[1600px] px-4 pb-10 sm:px-6 lg:px-10 xl:px-16 2xl:px-20">
         <div className="grid gap-4 md:grid-cols-4">
           {features.map((feature) => {
             const Icon = feature.icon;

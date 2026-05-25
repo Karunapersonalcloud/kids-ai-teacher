@@ -33,7 +33,7 @@ export default async function SubjectsPage() {
           <h1 className="text-3xl font-black text-purple-700">My Subjects</h1>
           <p className="mt-1 font-semibold text-slate-500">Subjects are based on the languages selected during registration.</p>
         </section>
-        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-5 grid w-full gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {subjects.map((subject) => (
             <SubjectCard key={`${subject.languageRole}-${subject.subjectName}`} subject={subject} grade={access?.grade || ""} uploads={uploads} />
           ))}

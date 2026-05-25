@@ -23,7 +23,7 @@ const textbookExamples = [
 export function DemoPage() {
   return (
     <main className="min-h-screen bg-[#f7f5ff] text-slate-950">
-      <section className="mx-auto max-w-7xl px-5 py-6 md:py-10">
+      <section className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-10 xl:px-16 2xl:px-20 md:py-10">
         <div className="flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-purple-100 md:flex-row md:items-center md:justify-between">
           <Link href="/">
             <BrandLogo />
@@ -72,7 +72,7 @@ export function DemoPage() {
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-7xl gap-6 px-5 pb-10">
+      <div className="mx-auto grid w-full max-w-[1600px] gap-6 px-4 pb-10 sm:px-6 lg:px-10 xl:px-16 2xl:px-20">
         <div id="visual-demo">
           <DemoRequestPreview />
         </div>

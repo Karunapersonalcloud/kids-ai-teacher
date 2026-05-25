@@ -41,7 +41,7 @@ export default async function SubjectDetailPage({
         }
       />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid w-full gap-5">
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
@@ -62,14 +62,14 @@ export default async function SubjectDetailPage({
             )}
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid w-full gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {chapters.map((chapter) => (
               <ChapterCard key={`${chapter.chapterNumber}-${chapter.chapterName}`} chapter={chapter} childId={childId} subjectName={subject.name} subjectSlug={subject.slug} />
             ))}
           </div>
         </section>
 
-        <aside className="space-y-5">
+        <aside className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="mb-4 font-black text-purple-700">Uploaded Materials</h2>
             <div className="space-y-3">
