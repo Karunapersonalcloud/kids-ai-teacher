@@ -2,7 +2,7 @@ import { getSubjectsForStudent } from "./grade-catalog";
 
 export type SubjectType = "Language" | "Core Subject" | "Skill Subject" | "Arts" | "Physical Education" | "Other";
 export type LanguageRole = "R1" | "R2" | "R3" | "Not Applicable";
-export type PublisherSource = "NCERT" | "CBSE" | "State Board" | "School Provided" | "Private Publisher" | "Other";
+export type PublisherSource = "NCERT" | "CBSE" | "State Board" | "AP State Board Official" | "School Provided" | "Private Publisher" | "Other";
 export type SubjectMedium = "English" | "Hindi" | "Regional Language" | "Other";
 export type SourceStatus = "pending" | "matched" | "downloaded" | "imported" | "indexed" | "needsUpload" | "unavailable";
 
@@ -45,7 +45,7 @@ export const subjectNameOptions = [
 
 export const subjectTypeOptions: SubjectType[] = ["Language", "Core Subject", "Skill Subject", "Arts", "Physical Education", "Other"];
 export const languageRoleOptions: LanguageRole[] = ["R1", "R2", "R3", "Not Applicable"];
-export const publisherOptions: PublisherSource[] = ["NCERT", "CBSE", "State Board", "School Provided", "Private Publisher", "Other"];
+export const publisherOptions: PublisherSource[] = ["NCERT", "CBSE", "State Board", "AP State Board Official", "School Provided", "Private Publisher", "Other"];
 export const mediumOptions: SubjectMedium[] = ["English", "Hindi", "Regional Language", "Other"];
 
 export const ncertBookTitleSuggestions = [
@@ -106,6 +106,7 @@ export function normalizeSubmittedSubjects(value: unknown): SubmittedSubject[] {
 }
 
 export function subjectStatusForPublisher(publisher: string, autoDownloadAllowed: boolean): SourceStatus {
+  if (publisher === "AP State Board Official") return autoDownloadAllowed ? "pending" : "needsUpload";
   if (publisher !== "NCERT") return "needsUpload";
   return autoDownloadAllowed ? "pending" : "needsUpload";
 }

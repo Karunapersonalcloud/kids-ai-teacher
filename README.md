@@ -2,6 +2,16 @@
 
 ConceptKid is a kid-friendly AI learning MVP built with Next.js, Tailwind CSS, Prisma, and PostgreSQL-ready persistence. It is designed as a controlled AI private teacher for children, with public demo access, parent/admin approval, AI learning tools, textbook ingestion, and progress tracking.
 
+## Browser Favicon
+
+The browser tab icon uses the ConceptKid logo. If you've updated favicons and the old icon still appears in your browser:
+
+- **Chrome/Edge**: Hard refresh (Ctrl+Shift+R / Cmd+Shift+R), use incognito mode, or clear site data
+- **Firefox**: Clear cache or hard refresh (Ctrl+F5)
+- **Safari**: Clear cache or use private browsing
+
+Favicons are strongly cached by browsers. A hard refresh or incognito mode will show the latest icon immediately.
+
 ## Current Features
 
 - Public landing page and demo mode
@@ -155,6 +165,8 @@ Brand assets live in `public/brand/`:
 - `apple-touch-icon.png`
 
 WhatsApp, LinkedIn, and other social apps can cache Open Graph previews. After changing the social preview image, redeploy and share a fresh full URL such as `https://www.conceptkid.in` or `https://www.conceptkid.in/demo`. Test the favicon in a hard-refresh or incognito window. If an old preview remains cached, bump the Open Graph image filename/version, for example from `conceptkid-og-v2.png` to `conceptkid-og-v3.png`.
+
+Chrome and Edge cache favicons very strongly. After deploying a favicon change, test in an incognito window or clear site data for `conceptkid.in` if the browser tab still shows an old icon.
 
 ## Useful Commands
 

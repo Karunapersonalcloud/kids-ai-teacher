@@ -26,8 +26,11 @@ export const metadata: Metadata = {
     images: ["/brand/conceptkid-og-v2.png"],
   },
   icons: {
-    icon: "/brand/favicon-v2.png",
-    shortcut: "/brand/favicon-v2.png",
+    icon: [
+      { url: "/brand/favicon-v3.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/favicon-v3.png", sizes: "192x192", type: "image/png" },
+    ],
+    shortcut: "/brand/favicon-v3.png",
     apple: "/brand/apple-touch-icon-v2.png",
   },
 };

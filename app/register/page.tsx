@@ -24,7 +24,7 @@ import { createChildDraft, type ChildRegistrationDraft } from "@/lib/multi-child
 type SubmitStatus = { tone: "ok" | "err"; message: string } | null;
 
 export default function RegisterPage() {
-  const [state, setState] = useState("Karnataka");
+  const [state, setState] = useState("");
   const [children, setChildren] = useState<ChildRegistrationDraft[]>([
     createChildDraft({
       grade: "Class 9",
@@ -42,6 +42,11 @@ export default function RegisterPage() {
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus(null);
+    const validationError = validateRegistration(state, children);
+    if (validationError) {
+      setStatus({ tone: "err", message: validationError });
+      return;
+    }
     setSubmitting(true);
     try {
       const form = new FormData(event.currentTarget);
@@ -124,6 +129,8 @@ export default function RegisterPage() {
                 list="state-options"
                 value={state}
                 onChange={(event) => setState(event.target.value)}
+                required
+                placeholder="Select state"
                 className="rounded-xl border border-slate-200 bg-white px-4 py-3 font-normal text-slate-900 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
               />
               <datalist id="state-options">
@@ -132,9 +139,11 @@ export default function RegisterPage() {
             </label>
             <Input name="preferredLanguage" label="Preferred communication language" defaultValue="English" />
           </div>
-          {suggestion && (
-            <div className="mt-4 rounded-2xl bg-blue-50 px-4 py-3 text-sm text-blue-800">{suggestion.suggestionText}</div>
-          )}
+          <div className="mt-4 rounded-2xl bg-blue-50 px-4 py-3 text-sm font-semibold leading-6 text-blue-800">
+            {state
+              ? suggestion?.suggestionText || "Please select the languages based on your child's school."
+              : "Select your state to see common language suggestions. Final language selection should match your child’s school."}
+          </div>
         </section>
 
         <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
@@ -158,6 +167,7 @@ export default function RegisterPage() {
                 key={index}
                 index={index}
                 child={child}
+                selectedState={state}
                 onChange={(patch) => updateChild(index, patch)}
                 onRemove={() => removeChild(index)}
                 canRemove={children.length > 1}
@@ -178,7 +188,7 @@ export default function RegisterPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
           <p className="max-w-xl text-sm text-slate-600">
-            We try to import textbooks only from official or authorized sources (NCERT, State Board portals, or publisher-provided official links). If a textbook is not available officially, please upload the textbook PDF, scanned pages, or chapter photos after approval.
+            We use official textbook sources where available, such as NCERT and supported State Board portals. If your child’s school uses private publisher books or school-provided worksheets, parent must upload authorized textbook PDFs, scanned pages, or chapter photos after approval.
           </p>
           <button
             type="submit"
@@ -196,12 +206,14 @@ export default function RegisterPage() {
 function ChildBlock({
   index,
   child,
+  selectedState,
   onChange,
   onRemove,
   canRemove,
 }: {
   index: number;
   child: ChildRegistrationDraft;
+  selectedState: string;
   onChange: (patch: Partial<ChildRegistrationDraft>) => void;
   onRemove: () => void;
   canRemove: boolean;
@@ -214,6 +226,7 @@ function ChildBlock({
     r2Language: child.r2Language,
     r3Language: child.r3Language,
   });
+  const boardGuidance = getBoardGuidance(child.board, selectedState);
 
   function setSubjects(updater: (current: SubmittedSubject[]) => SubmittedSubject[]) {
     onChange({ submittedSubjects: updater(child.submittedSubjects) });
@@ -235,11 +248,14 @@ function ChildBlock({
       current.map((subject, idx) => {
         if (idx !== subjectIndex) return subject;
         const publisher = patch.publisher || subject.publisher;
+        const officialImportAllowed = publisher === "NCERT" || (publisher === "AP State Board Official" && child.board === "State" && selectedState === "Andhra Pradesh");
+        const autoDownloadAllowed = patch.autoDownloadAllowed ?? (patch.publisher ? officialImportAllowed : subject.autoDownloadAllowed);
         return {
           ...subject,
           ...patch,
-          autoDownloadAllowed: patch.autoDownloadAllowed ?? (patch.publisher ? publisher === "NCERT" : subject.autoDownloadAllowed),
-          sourceStatus: patch.publisher ? subjectStatusForPublisher(publisher, patch.publisher === "NCERT") : subject.sourceStatus,
+          autoDownloadAllowed,
+          languageRole: (patch.subjectType || subject.subjectType) === "Language" ? (patch.languageRole || subject.languageRole) : "Not Applicable",
+          sourceStatus: patch.publisher ? subjectStatusForPublisher(publisher, autoDownloadAllowed) : subject.sourceStatus,
         };
       })
     );
@@ -294,6 +310,9 @@ function ChildBlock({
             ))}
           </select>
         </Field>
+        <div className="md:col-span-2 rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold leading-6 text-blue-800">
+          {boardGuidance}
+        </div>
         <Field label="School name (optional)">
           <input
             value={child.schoolName || ""}
@@ -347,7 +366,7 @@ function ChildBlock({
         </label>
       </div>
 
-      {classNumber >= 6 && classNumber <= 10 && (
+      {child.board === "CBSE" && classNumber >= 6 && classNumber <= 10 && (
         <div
           className={`mt-4 rounded-xl px-4 py-2.5 text-xs font-semibold ${
             cbseValidation.status === "Valid"
@@ -360,12 +379,17 @@ function ChildBlock({
           CBSE languages: {cbseValidation.status}. {cbseValidation.message}
         </div>
       )}
+      {child.board !== "CBSE" && classNumber >= 6 && classNumber <= 10 && (
+        <div className="mt-4 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-700">
+          Language subjects should match the school timetable. ConceptKid will use your selected languages and subjects without applying CBSE-only validation.
+        </div>
+      )}
 
       <div className="mt-5 rounded-2xl bg-white p-4 ring-1 ring-slate-100">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-semibold text-slate-900">Subjects this child is studying</h3>
-            <p className="text-xs text-slate-500">Edit publisher/book to match the school exactly.</p>
+            <p className="text-xs text-slate-500">Add the exact subjects, languages, textbook names, and publisher/source used by your child’s school.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -397,17 +421,21 @@ function ChildBlock({
                   className="rounded-lg border border-slate-200 bg-white px-3 py-2"
                 />
               </Field>
-              <SelectField label="Type" value={subject.subjectType} options={subjectTypeOptions} onChange={(value) => updateSubject(subjectIndex, { subjectType: value as SubmittedSubject["subjectType"] })} />
-              <SelectField label="Language role" value={subject.languageRole} options={languageRoleOptions} onChange={(value) => updateSubject(subjectIndex, { languageRole: value as SubmittedSubject["languageRole"] })} />
-              <Field label="Language">
-                <input
-                  list="language-options"
-                  value={subject.language}
-                  onChange={(event) => updateSubject(subjectIndex, { language: event.target.value })}
-                  placeholder="Optional"
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2"
-                />
-              </Field>
+              <SelectField label="Type" value={subject.subjectType} options={subjectTypeOptions} onChange={(value) => updateSubject(subjectIndex, { subjectType: value as SubmittedSubject["subjectType"], languageRole: value === "Language" ? subject.languageRole : "Not Applicable" })} />
+              {subject.subjectType === "Language" && (
+                <>
+                  <SelectField label="Language role" value={subject.languageRole} options={languageRoleOptions.filter((option) => option !== "Not Applicable")} onChange={(value) => updateSubject(subjectIndex, { languageRole: value as SubmittedSubject["languageRole"] })} />
+                  <Field label="Language">
+                    <input
+                      list="language-options"
+                      value={subject.language}
+                      onChange={(event) => updateSubject(subjectIndex, { language: event.target.value })}
+                      placeholder="Language studied"
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+                    />
+                  </Field>
+                </>
+              )}
               <SelectField label="Publisher / source" value={subject.publisher} options={publisherOptions} onChange={(value) => updateSubject(subjectIndex, { publisher: value as SubmittedSubject["publisher"] })} />
               <Field label="Book title">
                 <input
@@ -419,15 +447,14 @@ function ChildBlock({
                 />
               </Field>
               <SelectField label="Medium" value={subject.medium} options={mediumOptions} onChange={(value) => updateSubject(subjectIndex, { medium: value as SubmittedSubject["medium"] })} />
-              <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-700 ring-1 ring-slate-100 xl:col-span-2">
-                <input
-                  id={`auto-${index}-${subjectIndex}`}
-                  type="checkbox"
-                  checked={subject.autoDownloadAllowed}
-                  onChange={(event) => updateSubject(subjectIndex, { autoDownloadAllowed: event.target.checked, sourceStatus: subjectStatusForPublisher(subject.publisher, event.target.checked) })}
-                />
-                <label htmlFor={`auto-${index}-${subjectIndex}`}>Allow official NCERT auto-download when this source is NCERT</label>
-              </div>
+              <SourceImportControl
+                index={index}
+                subjectIndex={subjectIndex}
+                subject={subject}
+                childBoard={child.board}
+                selectedState={selectedState}
+                updateSubject={updateSubject}
+              />
               <div className="md:col-span-2 xl:col-span-3 flex justify-end">
                 <button
                   type="button"
@@ -510,4 +537,89 @@ function LanguageInput({ label, value, onChange, required = false }: { label: st
       />
     </label>
   );
+}
+
+function SourceImportControl({
+  index,
+  subjectIndex,
+  subject,
+  childBoard,
+  selectedState,
+  updateSubject,
+}: {
+  index: number;
+  subjectIndex: number;
+  subject: SubmittedSubject;
+  childBoard: ChildRegistrationDraft["board"];
+  selectedState: string;
+  updateSubject: (subjectIndex: number, patch: Partial<SubmittedSubject>) => void;
+}) {
+  const isNcert = subject.publisher === "NCERT";
+  const isApOfficial = subject.publisher === "AP State Board Official" && childBoard === "State" && selectedState === "Andhra Pradesh";
+
+  if (!isNcert && !isApOfficial) {
+    return (
+      <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800 xl:col-span-2">
+        Parent upload required after approval if official source is not available.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-700 ring-1 ring-slate-100 xl:col-span-2">
+      <input
+        id={`auto-${index}-${subjectIndex}`}
+        type="checkbox"
+        checked={subject.autoDownloadAllowed}
+        onChange={(event) => updateSubject(subjectIndex, { autoDownloadAllowed: event.target.checked, sourceStatus: subjectStatusForPublisher(subject.publisher, event.target.checked) })}
+      />
+      <label htmlFor={`auto-${index}-${subjectIndex}`}>
+        {isNcert ? "Allow official NCERT import where available" : "Allow official AP State Board import where available"}
+      </label>
+    </div>
+  );
+}
+
+function getBoardGuidance(board: ChildRegistrationDraft["board"], selectedState: string) {
+  if (board === "CBSE") {
+    return "CBSE schools may offer different language combinations depending on the school. Please select R1/R2/R3 exactly as per your child’s school timetable.";
+  }
+  if (board === "State" && selectedState === "Andhra Pradesh") {
+    return "ConceptKid can use official Andhra Pradesh State Board textbook sources where available. If your school uses private publisher books, parent must upload textbook PDF, scanned pages, or chapter photos.";
+  }
+  if (board === "State" && selectedState) {
+    return `Common languages for ${selectedState} are suggested below. Please select the actual languages your child studies in school.`;
+  }
+  if (board === "State") {
+    return "Select your state to see common language suggestions. Please select the actual languages your child studies in school.";
+  }
+  if (board === "ICSE") {
+    return "ICSE subject and language combinations vary by school. Please enter the subjects and books exactly as used by your child’s school.";
+  }
+  return "Please enter the board, subjects, languages, and textbook details exactly as followed by your child’s school.";
+}
+
+function validateRegistration(state: string, children: ChildRegistrationDraft[]) {
+  if (!state.trim()) return "Please select your state before submitting.";
+  if (children.length < 1) return "Please add at least one child.";
+
+  for (const [index, child] of children.entries()) {
+    const childLabel = child.childName || `Child ${index + 1}`;
+    if (!child.grade) return `Please select grade/class for ${childLabel}.`;
+    if (!child.board) return `Please select board for ${childLabel}.`;
+    if (child.board === "State" && !state.trim()) return `Please select state for ${childLabel}'s State Board setup.`;
+    if (!child.submittedSubjects.length) return `Please add at least one subject for ${childLabel}.`;
+
+    for (const subject of child.submittedSubjects) {
+      if (!subject.subjectName.trim()) return `Please enter a subject name for ${childLabel}.`;
+      if (subject.subjectType === "Language" && !["R1", "R2", "R3"].includes(subject.languageRole)) {
+        return `Please select R1, R2, or R3 for ${subject.subjectName}.`;
+      }
+      if (subject.subjectType !== "Language" && subject.languageRole !== "Not Applicable") {
+        return `Language role should be empty for non-language subject ${subject.subjectName}.`;
+      }
+    }
+  }
+
+  return "";
 }
