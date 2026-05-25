@@ -150,11 +150,11 @@ Brand assets live in `public/brand/`:
 
 - `conceptkid-logo.png`
 - `conceptkid-logo-wide.png`
-- `conceptkid-og-v1.png`
+- `conceptkid-og-v2.png`
 - `favicon.png`
 - `apple-touch-icon.png`
 
-WhatsApp, LinkedIn, and other social apps can cache Open Graph previews. After changing the social preview image, redeploy and share a fresh full URL such as `https://www.conceptkid.in` or `https://www.conceptkid.in/demo`. If an old preview remains cached, bump the Open Graph image filename/version, for example from `conceptkid-og-v1.png` to `conceptkid-og-v2.png`.
+WhatsApp, LinkedIn, and other social apps can cache Open Graph previews. After changing the social preview image, redeploy and share a fresh full URL such as `https://www.conceptkid.in` or `https://www.conceptkid.in/demo`. If an old preview remains cached, bump the Open Graph image filename/version, for example from `conceptkid-og-v2.png` to `conceptkid-og-v3.png`.
 
 ## Useful Commands
 

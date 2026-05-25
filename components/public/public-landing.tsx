@@ -14,19 +14,21 @@ const features = [
 
 export function PublicLanding() {
   return (
-    <main className="min-h-screen bg-[#f7f5ff] text-slate-900">
-      <section className="mx-auto w-full max-w-[1600px] px-4 pt-6 sm:px-6 lg:px-10 xl:px-16 2xl:px-20">
-        <nav className="flex flex-col gap-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-purple-100 md:flex-row md:items-center md:justify-between">
-          <BrandLogo />
+    <main className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="w-full border-b border-slate-200 bg-white">
+        <nav className="mx-auto flex min-h-[72px] w-full max-w-[1600px] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-10 xl:flex-row xl:items-center xl:justify-between xl:px-16 2xl:px-20">
+          <Link href="/" className="inline-flex items-center">
+            <BrandLogo className="items-center" />
+          </Link>
           <div className="flex flex-wrap gap-3">
             <Link href="/demo" className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700">View Demo</Link>
             <Link href="/login" className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-purple-700 ring-1 ring-purple-100">Parent Login</Link>
             <Link href="/register" className="rounded-2xl bg-purple-600 px-4 py-3 text-sm font-black text-white">Register</Link>
           </div>
         </nav>
-      </section>
+      </header>
 
-      <section className="mx-auto grid min-h-[78vh] w-full max-w-[1600px] gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:px-10 xl:px-16 2xl:px-20">
+      <section className="mx-auto grid w-full max-w-[1600px] gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:px-10 lg:py-16 xl:px-16 2xl:px-20">
         <div>
           <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-black text-purple-700 shadow-sm">
             <LockKeyhole className="h-4 w-4" /> Controlled access MVP
