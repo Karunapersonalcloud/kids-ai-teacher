@@ -163,115 +163,128 @@ export function DemoSelectionPage() {
   }
 
   return (
-    <section className="overflow-hidden rounded-[2rem] border border-purple-100 bg-gradient-to-br from-[#f8f5ff] via-white to-[#eaf9ff] shadow-sm">
-      <div className="flex items-center justify-between gap-4 border-b border-white/80 bg-white/70 px-5 py-4 backdrop-blur md:px-7">
-        <button type="button" aria-label="Open demo menu" className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-700 shadow-sm ring-1 ring-purple-100">
+    <section className="relative overflow-hidden rounded-[2rem] border border-purple-100 bg-[radial-gradient(circle_at_top_left,#fbe7ff_0,#f4ecff_34%,#ecfbff_68%,#ffffff_100%)] shadow-sm">
+      <div className="pointer-events-none absolute -left-16 top-28 h-44 w-44 rounded-full bg-purple-200/35 blur-3xl" />
+      <div className="pointer-events-none absolute -right-12 top-20 h-52 w-52 rounded-full bg-sky-200/40 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-20 left-1/2 h-40 w-40 rounded-full bg-yellow-100/60 blur-3xl" />
+
+      <div className="relative flex items-center justify-between gap-4 border-b border-white/70 bg-white/55 px-5 py-4 backdrop-blur-md md:px-7">
+        <button type="button" aria-label="Open demo menu" className="grid h-11 w-11 place-items-center rounded-2xl bg-white/90 text-slate-700 shadow-sm ring-1 ring-purple-100">
           <Menu className="h-5 w-5" />
         </button>
         <div className="min-w-0 flex-1">
           <BrandLogo variant="compact" />
         </div>
-        <div className="grid h-11 w-11 place-items-center rounded-2xl bg-purple-600 text-white shadow-sm">
+        <div className="grid h-11 w-11 place-items-center rounded-2xl bg-purple-600 text-white shadow-sm shadow-purple-200">
           <ShieldCheck className="h-5 w-5" />
         </div>
       </div>
 
-      <div className="relative px-5 py-6 md:px-7 lg:px-8">
-        <div className="pointer-events-none absolute right-8 top-7 hidden text-yellow-300 md:block">
+      <div className="relative px-4 py-8 sm:px-6 md:px-8 lg:px-10 lg:py-11">
+        <div className="pointer-events-none absolute left-8 top-10 hidden -rotate-12 rounded-3xl bg-white/70 p-4 text-purple-500 shadow-sm ring-1 ring-white md:block">
+          <BookOpen className="h-8 w-8" />
+        </div>
+        <div className="pointer-events-none absolute right-8 top-12 hidden text-yellow-300 md:block">
           <Stars className="h-12 w-12" />
         </div>
-        <div className="pointer-events-none absolute bottom-10 right-24 hidden rotate-12 rounded-2xl bg-teal-100 px-4 py-3 text-teal-700 shadow-sm lg:block">
-          <BookOpen className="h-7 w-7" />
+        <div className="pointer-events-none absolute bottom-10 right-16 hidden rotate-12 rounded-3xl bg-teal-100/80 px-4 py-3 text-teal-700 shadow-sm lg:block">
+          <Sparkles className="h-7 w-7" />
         </div>
 
-        <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr] xl:items-start">
-          <div className="space-y-6">
-            <div>
-              <PreviewBadge>{previewLabel}</PreviewBadge>
-              <h2 className="mt-5 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">Create a Learning Demo</h2>
-              <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-600">
-                Preview interactive visual lessons crafted from trusted textbooks.
-              </p>
-            </div>
-
-            <StepIndicator activeStep={subject && chapterInput ? 3 : grade ? 2 : 1} />
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <TrustCard icon={<BookOpen className="h-5 w-5" />} title="Textbook aligned" text="Covers your syllabus" tone="purple" />
-              <TrustCard icon={<ShieldCheck className="h-5 w-5" />} title="Child-safe AI" text="Safe & age-appropriate" tone="teal" />
-              <TrustCard icon={<Sparkles className="h-5 w-5" />} title="Visual learning" text="Engaging & interactive" tone="yellow" />
-            </div>
+        <div className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-3xl text-center">
+            <PreviewBadge>{previewLabel}</PreviewBadge>
+            <h2 className="mt-5 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">Create a Learning Demo</h2>
+            <p className="mx-auto mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-600 sm:text-lg">
+              Preview interactive visual lessons crafted from trusted textbooks.
+            </p>
           </div>
 
-          <form onSubmit={generatePreview} className="rounded-[1.75rem] border border-white bg-white/95 p-4 shadow-xl shadow-purple-100/60 md:p-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <SelectField icon={<GraduationCap className="h-5 w-5" />} label="Class / Grade" value={grade} onChange={clearFromClass} placeholder="Select class / grade" options={grades} />
-              <SelectField icon={<School className="h-5 w-5" />} label="Board" value={board} onChange={clearFromBoard} placeholder="Select board" options={boards} />
-              <SearchableCombobox
-                icon={<MapPin className="h-5 w-5" />}
-                label="State"
-                helper="Required only for State Board"
-                value={state}
-                onChange={clearFromState}
-                placeholder="Select state"
-                options={indiaStateOptions}
-                disabled={!isStateBoard}
-              />
-              <SearchableCombobox
-                icon={<Search className="h-5 w-5" />}
-                label="Subject"
-                value={subject}
-                onChange={clearFromSubject}
-                placeholder="Type to search subject"
-                options={subjectOptions}
-                disabled={!canLoadSubjects}
-              />
-              <SearchableCombobox
-                icon={<LayoutList className="h-5 w-5" />}
-                label="Chapter number/name"
-                value={chapterInput}
-                onChange={clearFromChapter}
-                placeholder="Search chapter, e.g., Chapter 3"
-                options={chapterOptions.map((item) => formatChapterLabel(item))}
-                disabled={!subject.trim()}
-              />
-              <SearchableCombobox
-                icon={<BookOpen className="h-5 w-5" />}
-                label="Topic name"
-                helper="Optional"
-                value={topicInput}
-                onChange={(value) => {
-                  setTopicInput(value);
-                  setLesson(null);
-                  setMessage("");
-                }}
-                placeholder="Search topic, e.g., Fractions"
-                options={topicOptions}
-                disabled={!chapterInput.trim()}
-              />
-              <SelectField
-                icon={<Languages className="h-5 w-5" />}
-                label="Narration language"
-                value={language}
-                onChange={setLanguage}
-                placeholder="Select narration language"
-                options={narrationLanguages}
-                className="md:col-span-2"
-              />
+          <div className="mx-auto mt-7 max-w-4xl">
+            <StepIndicator activeStep={subject && chapterInput ? 3 : grade ? 2 : 1} />
+          </div>
+
+          <form onSubmit={generatePreview} className="relative mx-auto mt-8 max-w-5xl rounded-[2rem] border border-white bg-white/95 p-5 shadow-2xl shadow-purple-200/50 ring-1 ring-purple-100/70 backdrop-blur md:p-7 lg:p-8">
+            <div className="mb-6 flex flex-col gap-2 text-center sm:text-left">
+              <span className="text-xs font-black uppercase tracking-[0.18em] text-purple-500">Demo setup</span>
+              <h3 className="text-2xl font-black text-slate-950">Choose what your child wants to learn</h3>
+              <p className="text-sm font-semibold leading-6 text-slate-500">Pick the class, syllabus, chapter, and optional topic. We will create a limited visual preview.</p>
             </div>
 
-            {message && <div className="mt-5 rounded-2xl bg-purple-50 px-4 py-3 text-sm font-bold leading-6 text-purple-800">{message}</div>}
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <SelectField icon={<GraduationCap className="h-5 w-5" />} label="Class / Grade" value={grade} onChange={clearFromClass} placeholder="Select class / grade" options={grades} />
+                <SelectField icon={<School className="h-5 w-5" />} label="Board" value={board} onChange={clearFromBoard} placeholder="Select board" options={boards} />
+                <SearchableCombobox
+                  icon={<MapPin className="h-5 w-5" />}
+                  label="State"
+                  helper="Required only for State Board"
+                  value={state}
+                  onChange={clearFromState}
+                  placeholder="Select state"
+                  options={indiaStateOptions}
+                  disabled={!isStateBoard}
+                />
+                <SearchableCombobox
+                  icon={<Search className="h-5 w-5" />}
+                  label="Subject"
+                  value={subject}
+                  onChange={clearFromSubject}
+                  placeholder="Type to search subject"
+                  options={subjectOptions}
+                  disabled={!canLoadSubjects}
+                />
+                <SearchableCombobox
+                  icon={<LayoutList className="h-5 w-5" />}
+                  label="Chapter number/name"
+                  value={chapterInput}
+                  onChange={clearFromChapter}
+                  placeholder="Search chapter, e.g., Chapter 3"
+                  options={chapterOptions.map((item) => formatChapterLabel(item))}
+                  disabled={!subject.trim()}
+                />
+                <SearchableCombobox
+                  icon={<BookOpen className="h-5 w-5" />}
+                  label="Topic name"
+                  helper="Optional"
+                  value={topicInput}
+                  onChange={(value) => {
+                    setTopicInput(value);
+                    setLesson(null);
+                    setMessage("");
+                  }}
+                  placeholder="Search topic, e.g., Fractions"
+                  options={topicOptions}
+                  disabled={!chapterInput.trim()}
+                />
+                <SelectField
+                  icon={<Languages className="h-5 w-5" />}
+                  label="Narration language"
+                  value={language}
+                  onChange={setLanguage}
+                  placeholder="Select narration language"
+                  options={narrationLanguages}
+                  className="md:col-span-2 xl:col-span-3"
+                />
+              </div>
 
-            <button className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 px-6 py-4 text-sm font-black text-white shadow-lg shadow-purple-200 transition hover:from-purple-700 hover:to-blue-700">
-              <WandSparkles className="h-5 w-5" />
-              Generate Visual Demo
-            </button>
+              {message && <div className="mt-6 rounded-2xl bg-purple-50 px-4 py-3 text-center text-sm font-bold leading-6 text-purple-800 ring-1 ring-purple-100">{message}</div>}
 
-            <div className="mt-4 flex items-start gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-xs font-bold leading-5 text-slate-600">
-              <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-purple-600" />
-              Demo content is a limited preview. Full textbook-based learning unlocks after registration and authorized textbook setup.
-            </div>
-          </form>
+              <button className="mx-auto mt-7 inline-flex w-full max-w-md items-center justify-center gap-2 rounded-full bg-gradient-to-r from-purple-600 via-fuchsia-600 to-blue-600 px-6 py-4 text-sm font-black text-white shadow-xl shadow-purple-200 transition hover:scale-[1.01] hover:from-purple-700 hover:via-fuchsia-700 hover:to-blue-700">
+                <WandSparkles className="h-5 w-5" />
+                Generate Visual Demo
+              </button>
+
+              <div className="mt-5 flex items-start gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-xs font-bold leading-5 text-slate-600">
+                <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-purple-600" />
+                Demo content is a limited preview. Full textbook-based learning unlocks after registration and authorized textbook setup.
+              </div>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                <TrustCard icon={<BookOpen className="h-5 w-5" />} title="Textbook aligned" text="Covers your syllabus" tone="purple" />
+                <TrustCard icon={<ShieldCheck className="h-5 w-5" />} title="Child-safe AI" text="Safe & age-appropriate" tone="teal" />
+                <TrustCard icon={<Sparkles className="h-5 w-5" />} title="Visual learning" text="Engaging & interactive" tone="yellow" />
+              </div>
+            </form>
         </div>
       </div>
 
@@ -363,9 +376,9 @@ function SearchableCombobox({
 
 function FieldShell({ icon, label, helper, className = "", children }: { icon: ReactNode; label: string; helper?: string; className?: string; children: ReactNode }) {
   return (
-    <label className={`grid gap-2 rounded-2xl border border-slate-100 bg-slate-50/80 p-3 ${className}`}>
+    <label className={`grid gap-2 ${className}`}>
       <span className="flex items-center gap-2 text-sm font-black text-slate-800">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-white text-purple-700 shadow-sm ring-1 ring-purple-100">{icon}</span>
+        <span className="grid h-9 w-9 place-items-center rounded-2xl bg-purple-50 text-purple-700 ring-1 ring-purple-100">{icon}</span>
         <span>
           {label}
           {helper && <span className="block text-xs font-bold text-slate-500">{helper}</span>}
@@ -379,14 +392,14 @@ function FieldShell({ icon, label, helper, className = "", children }: { icon: R
 function StepIndicator({ activeStep }: { activeStep: number }) {
   const steps = ["Choose class", "Pick chapter", "Generate demo"];
   return (
-    <div className="grid gap-3 rounded-3xl bg-white/70 p-3 shadow-sm ring-1 ring-white sm:grid-cols-3">
+    <div className="grid gap-3 rounded-full bg-white/70 p-2 shadow-sm ring-1 ring-white/80 sm:grid-cols-3">
       {steps.map((step, index) => {
         const stepNumber = index + 1;
         const active = stepNumber === activeStep;
         const complete = stepNumber < activeStep;
         return (
-          <div key={step} className={`flex items-center gap-3 rounded-2xl px-3 py-2 ${active ? "bg-purple-600 text-white" : complete ? "bg-purple-50 text-purple-800" : "bg-white text-slate-500"}`}>
-            <span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-black ${active ? "bg-white text-purple-700" : "bg-slate-100 text-slate-600"}`}>{stepNumber}</span>
+          <div key={step} className={`flex items-center justify-center gap-3 rounded-full px-3 py-2 ${active ? "bg-purple-600 text-white shadow-lg shadow-purple-200" : complete ? "bg-purple-50 text-purple-800" : "bg-transparent text-slate-500"}`}>
+            <span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-black ${active ? "bg-white text-purple-700" : "bg-white text-slate-600 ring-1 ring-slate-100"}`}>{stepNumber}</span>
             <span className="text-sm font-black">{step}</span>
           </div>
         );
@@ -403,7 +416,7 @@ function TrustCard({ icon, title, text, tone }: { icon: ReactNode; title: string
   }[tone];
 
   return (
-    <div className="rounded-3xl border border-white bg-white/80 p-4 shadow-sm">
+    <div className="rounded-3xl border border-slate-100 bg-white/80 p-4 shadow-sm shadow-purple-100/30">
       <div className={`grid h-10 w-10 place-items-center rounded-2xl ${toneClass}`}>{icon}</div>
       <h3 className="mt-3 text-sm font-black text-slate-950">{title}</h3>
       <p className="mt-1 text-xs font-bold text-slate-500">{text}</p>
@@ -413,7 +426,7 @@ function TrustCard({ icon, title, text, tone }: { icon: ReactNode; title: string
 
 function PreviewBadge({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-black text-purple-700 shadow-sm ring-1 ring-purple-100">
+    <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-xs font-black text-purple-700 shadow-md shadow-purple-100 ring-1 ring-purple-100">
       <Sparkles className="h-4 w-4 text-yellow-500" />
       {children}
     </span>
@@ -459,4 +472,4 @@ function normalize(value: string) {
 }
 
 const fieldClassName =
-  "w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm transition placeholder:text-slate-400 disabled:bg-slate-100 disabled:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100";
+  "h-[52px] w-full rounded-2xl border border-purple-100 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm shadow-purple-50 transition placeholder:text-slate-400 disabled:bg-slate-100 disabled:text-slate-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100";
