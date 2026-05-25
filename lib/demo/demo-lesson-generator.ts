@@ -2,11 +2,18 @@ import { getDemoPreviewRules, type DemoPreviewMode } from "./demo-preview-rules"
 
 export type DemoLessonRequest = {
   grade: string;
+  classGrade?: string;
   board: string;
+  state?: string;
   subject: string;
   chapter: string;
+  chapterId?: string;
+  chapterName?: string;
   topic?: string;
+  topicId?: string;
+  topicName?: string;
   language?: string;
+  narrationLanguage?: string;
 };
 
 export type DemoSlide = {
@@ -37,7 +44,8 @@ export function generateDemoLesson(input: DemoLessonRequest): DemoVisualLesson {
   const hasTopic = Boolean(input.topic?.trim());
   const rules = getDemoPreviewRules({ hasTopic });
   const classNumber = Number(input.grade.replace(/\D/g, "")) || 1;
-  const focus = input.topic?.trim() || input.chapter.trim();
+  const chapter = input.chapterName?.trim() || input.chapter.trim();
+  const focus = input.topicName?.trim() || input.topic?.trim() || chapter;
   const style = getStyle(classNumber);
   const subject = input.subject || (classNumber <= 5 ? "EVS" : "Science");
 
@@ -74,8 +82,10 @@ export function generateDemoLesson(input: DemoLessonRequest): DemoVisualLesson {
   return {
     ...input,
     subject,
-    topic: input.topic || "",
-    title: hasTopic ? `${focus} demo preview` : `${input.chapter} chapter demo preview`,
+    chapter,
+    topic: input.topicName || input.topic || "",
+    language: input.narrationLanguage || input.language,
+    title: hasTopic ? `${focus} demo preview` : `${chapter} chapter demo preview`,
     previewMode: rules.previewMode,
     previewLabel: rules.previewLabel,
     previewPercent: rules.previewPercent,
