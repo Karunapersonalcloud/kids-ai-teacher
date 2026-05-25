@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     siteName: "ConceptKid",
     images: [
       {
-        url: "/brand/conceptkid-og-v2.png",
+        url: "/brand/conceptkid-og-v3.png",
         width: 1200,
         height: 630,
         alt: "ConceptKid Kids AI Teacher",
@@ -23,11 +23,11 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "ConceptKid - Kids AI Teacher",
     description: "A kid-friendly AI education dashboard for children and parents.",
-    images: ["/brand/conceptkid-og-v2.png"],
+    images: ["/brand/conceptkid-og-v3.png"],
   },
   icons: {
-    icon: "/brand/favicon-v2.png",
-    shortcut: "/brand/favicon-v2.png",
+    icon: "/brand/favicon-v3.png",
+    shortcut: "/brand/favicon-v3.png",
     apple: "/brand/apple-touch-icon.png",
   },
 };
