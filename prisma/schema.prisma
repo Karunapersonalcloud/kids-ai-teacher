@@ -79,7 +79,6 @@ model Child {
 
   user            User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
   studentSubjects StudentSubject[]
-  userSessions    UserSession[]
 
   @@index([userId])
   @@index([childId])
