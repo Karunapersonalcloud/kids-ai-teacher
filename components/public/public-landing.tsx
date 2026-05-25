@@ -60,7 +60,7 @@ const earlyAccessPlans = [
   ["Demo Preview", ["Visual sample lessons", "Limited preview", "No saved progress"]],
   ["Pilot Access", ["Approved parent login", "Child diagnostic", "Visual learning", "Parent progress view"]],
   ["Full Learning Plan", ["Textbook-based learning", "Practice and chapter exams", "Weak-area strengthening", "Coming after pilot testing"]],
-  ["Family Plan", ["Multiple children", "Parent dashboard", "Coming after pilot testing"]],
+  ["Family Plan", ["Up to 2 child profiles", "Separate learning path for each child", "Parent dashboard for both children", "Individual progress, weak areas, and exam plans", "Additional child add-on coming later"]],
 ] as const;
 
 export function PublicLanding() {
@@ -212,6 +212,9 @@ export function PublicLanding() {
               </ul>
             </article>
           ))}
+        </div>
+        <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm font-semibold leading-6 text-slate-700">
+          Each child profile has a separate learning path, textbook setup, diagnostic result, homework uploads, and progress tracking. Family access is intended for children from the same household.
         </div>
         <div className="mt-7 rounded-3xl bg-purple-600 p-6 text-white shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

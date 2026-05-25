@@ -69,14 +69,21 @@ model Child {
   cbseLanguageValidationStatus String?
   weakSubjects                 String?
   learningGoal                 String?
+  // Student login fields
+  studentLoginId               String?  @unique
+  studentCredentialHash        String?
+  mustChangeStudentPassword    Boolean  @default(false)
+  studentLoginEnabled          Boolean  @default(true)
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
 
   user            User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
   studentSubjects StudentSubject[]
+  userSessions    UserSession[]
 
   @@index([userId])
   @@index([childId])
+  @@index([studentLoginId])
 }
 
 model AccessRequest {
