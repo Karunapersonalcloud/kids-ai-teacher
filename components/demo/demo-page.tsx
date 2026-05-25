@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, BookMarked, Brain, CheckCircle2, ClipboardList, FileUp, GraduationCap, LockKeyhole, Repeat2, ShieldCheck, Sparkles } from "lucide-react";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { GradeDemoClass } from "./grade-demo-class";
 import { ParentPreview } from "./parent-preview";
 import { DemoRequestPreview } from "./demo-request-preview";
@@ -24,7 +25,9 @@ export function DemoPage() {
     <main className="min-h-screen bg-[#f7f5ff] text-slate-950">
       <section className="mx-auto max-w-7xl px-5 py-6 md:py-10">
         <div className="flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-purple-100 md:flex-row md:items-center md:justify-between">
-          <Link href="/" className="text-sm font-black text-purple-700">ConceptKid</Link>
+          <Link href="/">
+            <BrandLogo />
+          </Link>
           <div className="flex flex-wrap gap-3">
             <Link href="/login" className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700">Parent Login</Link>
             <Link href="/register" className="rounded-2xl bg-purple-600 px-4 py-3 text-sm font-black text-white">Register for Access</Link>

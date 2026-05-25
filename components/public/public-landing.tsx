@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { BookOpen, Bot, Eye, LockKeyhole, Sparkles, TrendingUp } from "lucide-react";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { billingPlans } from "@/lib/billing-types";
 
 const features = [
@@ -14,7 +15,18 @@ const features = [
 export function PublicLanding() {
   return (
     <main className="min-h-screen bg-[#f7f5ff] text-slate-900">
-      <section className="mx-auto grid min-h-[88vh] max-w-7xl gap-8 px-5 py-8 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
+      <section className="mx-auto max-w-7xl px-5 pt-6">
+        <nav className="flex flex-col gap-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-purple-100 md:flex-row md:items-center md:justify-between">
+          <BrandLogo />
+          <div className="flex flex-wrap gap-3">
+            <Link href="/demo" className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700">View Demo</Link>
+            <Link href="/login" className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-purple-700 ring-1 ring-purple-100">Parent Login</Link>
+            <Link href="/register" className="rounded-2xl bg-purple-600 px-4 py-3 text-sm font-black text-white">Register</Link>
+          </div>
+        </nav>
+      </section>
+
+      <section className="mx-auto grid min-h-[78vh] max-w-7xl gap-8 px-5 py-8 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
         <div>
           <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-black text-purple-700 shadow-sm">
             <LockKeyhole className="h-4 w-4" /> Controlled access MVP

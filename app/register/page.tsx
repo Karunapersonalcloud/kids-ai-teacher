@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Trash2, UserPlus } from "lucide-react";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { getClassNumberFromGrade, getSubjectsForGrade, gradeOptions } from "@/lib/grade-catalog";
 import { cbseLanguageNames, validateCbseLanguageSelection } from "@/lib/cbse-language-catalog";
 import { getIndiaStateSuggestion, indiaStateOptions } from "@/lib/india-state-catalog";
@@ -93,7 +94,12 @@ export default function RegisterPage() {
     <main className="min-h-screen bg-slate-50 p-4 md:p-8">
       <form onSubmit={submit} className="mx-auto max-w-5xl space-y-6">
         <header className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
-          <Link href="/" className="text-sm font-semibold text-purple-700 hover:underline">← Back to home</Link>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <Link href="/" aria-label="Back to ConceptKid home">
+              <BrandLogo />
+            </Link>
+            <Link href="/" className="text-sm font-semibold text-purple-700 hover:underline">Back to home</Link>
+          </div>
           <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">Register for ConceptKid</h1>
           <p className="mt-2 text-slate-600">
             Add your details and one or more children. Access is enabled after admin approval. You can register multiple children in one go — each can have their own grade, board, subjects, and books.

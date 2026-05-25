@@ -21,6 +21,7 @@ import {
   Users,
 } from "lucide-react";
 import { children } from "@/lib/mock-data";
+import { BrandLogo } from "./brand-logo";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -52,12 +53,8 @@ export function AppShell({
     <div className="min-h-screen w-full bg-slate-50 text-slate-950">
       <div className="flex min-h-screen w-full">
         <aside className="sticky top-0 hidden h-screen w-[280px] shrink-0 border-r border-slate-200 bg-white px-4 py-5 shadow-sm lg:block">
-          <Link href="/dashboard" className="mb-7 flex items-center gap-3 rounded-2xl px-2">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-sm font-black text-white shadow-sm">CK</div>
-            <div>
-              <div className="text-xl font-black leading-5 text-slate-950">ConceptKid</div>
-              <div className="text-xs font-bold text-slate-500">AI concept teacher</div>
-            </div>
+          <Link href="/dashboard" className="mb-7 flex items-center rounded-2xl px-2">
+            <BrandLogo />
           </Link>
 
           <nav className="space-y-1.5">

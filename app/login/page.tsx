@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { BrandLogo } from "@/components/shared/brand-logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,7 +38,12 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7f5ff] p-5">
       <section className="w-full max-w-md rounded-3xl bg-white p-6 shadow-sm">
-        <Link href="/" className="text-sm font-black text-purple-700">← Back</Link>
+        <div className="flex items-center justify-between gap-4">
+          <Link href="/" aria-label="Back to ConceptKid home">
+            <BrandLogo />
+          </Link>
+          <Link href="/" className="text-sm font-black text-purple-700">Back</Link>
+        </div>
         <h1 className="mt-4 text-3xl font-black text-purple-800">Parent Login</h1>
         <p className="mt-2 text-sm font-semibold text-slate-500">Admin and approved parents can login using their registered email/mobile and PIN.</p>
         <p className="mt-3 rounded-2xl bg-purple-50 px-4 py-3 text-sm font-bold leading-6 text-purple-800">
