@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/shared/app-shell";
+import { PageHeader } from "@/components/shared/page-header";
 import type { AccessRequest } from "@/lib/access-store";
 import { normalizeSubmittedSubjects } from "@/lib/student-subjects";
 
@@ -56,25 +57,25 @@ Please login and change your PIN on first login.`;
 
   return (
     <AppShell>
-      <section className="mb-5 rounded-3xl bg-white p-6 shadow-sm">
-        <h1 className="text-3xl font-black text-purple-800">Admin Approval Panel</h1>
-        <p className="mt-2 font-semibold text-slate-500">Approve trials, enable full access, block users, set expiry, and manage limits.</p>
-        <p className="mt-2 text-sm font-bold text-slate-500">Need help? Contact us at support@conceptkid.in</p>
-        <div className="mt-4 rounded-2xl bg-purple-50 p-3 text-sm font-bold text-purple-700">{message}</div>
-      </section>
+      <PageHeader
+        badge="Admin"
+        title="Admin Approval Panel"
+        subtitle="Approve trials, enable full access, block users, set expiry, manage limits, and review selected children, subjects, and textbook details."
+        actions={<div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700">{message}</div>}
+      />
 
-      <div className="mb-5 grid gap-3 md:grid-cols-6">
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
         {groups.map((group) => (
-          <div key={group} className="rounded-2xl bg-white p-4 text-center shadow-sm">
-            <div className="text-2xl font-black text-purple-800">{counts[group]}</div>
+          <div key={group} className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
+            <div className="text-2xl font-black text-slate-950">{counts[group]}</div>
             <div className="text-xs font-black uppercase text-slate-500">{group}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 2xl:grid-cols-2">
         {requests.map((request) => (
-          <article key={request.id} className="rounded-3xl bg-white p-5 shadow-sm">
+          <article key={request.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">

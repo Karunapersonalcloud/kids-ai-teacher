@@ -5,6 +5,7 @@ import { Sparkles } from "lucide-react";
 import { VisualLessonPlayer } from "@/components/learning/visual-lesson-player";
 import { AppShell } from "@/components/shared/app-shell";
 import { ChildSelect } from "@/components/shared/controls";
+import { PageHeader } from "@/components/shared/page-header";
 import {
   getChapterByNumber,
   getChaptersForGradeSubject,
@@ -70,12 +71,14 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
 
   return (
     <AppShell activeChildAvatar={child.avatar}>
-      <section className="rounded-2xl bg-white p-5 shadow-sm">
-        <div className="mb-4">
-          <h1 className="text-2xl font-black text-slate-950">Create a Visual Lesson</h1>
-          <p className="mt-1 text-sm font-bold text-slate-500">Select chapter and concept to generate a focused visual lesson.</p>
-        </div>
-        <div className="grid gap-4 xl:grid-cols-[220px_210px_minmax(260px,1fr)_minmax(220px,1fr)_auto]">
+      <PageHeader
+        badge="Visual Learning"
+        title="Create a focused visual lesson"
+        subtitle="Select the student, subject, chapter, and concept. Use All Concepts for a complete chapter lesson or choose one concept for focused teaching."
+      />
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="grid gap-4 2xl:grid-cols-[220px_220px_minmax(300px,1fr)_minmax(300px,1fr)_auto]">
           <ChildSelect
             value={childId}
             onChange={(nextChild) => {
@@ -107,7 +110,7 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
           <label className="grid gap-1">
             <span className="text-xs font-black uppercase tracking-wide text-slate-500">Chapter</span>
             <select
-              className="rounded-xl border border-purple-100 bg-white px-4 py-3 font-bold shadow-sm"
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm"
               value={chapterNumber}
               onChange={(event) => {
                 const nextChapterNumber = Number(event.target.value);
@@ -127,16 +130,16 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
             </select>
           </label>
           <LabeledSelect label="Concept / Topic" value={selectedConcept} onChange={(nextConcept) => setSelection({ ...selection, concept: nextConcept })} options={conceptOptions} />
-          <button onClick={createLesson} className="rounded-xl bg-purple-600 px-5 py-3 font-black text-white shadow-sm hover:bg-purple-700">
+          <button onClick={createLesson} className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-slate-800">
             {loading ? "Creating..." : "Create Visual Lesson"}
           </button>
         </div>
-        <p className="mt-4 rounded-2xl bg-purple-50 px-4 py-3 text-sm font-bold text-purple-700">
+        <p className="mt-4 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700">
           {child.grade} · {subject} · {board} · Chapter {selectedChapter.number}: {selectedChapter.name} · Concept: {selectedConcept}
         </p>
       </section>
 
-      <section className="mt-5 rounded-3xl bg-gradient-to-br from-purple-600 to-blue-600 p-6 text-white shadow-sm">
+      <section className="mt-5 rounded-3xl bg-slate-950 p-6 text-white shadow-sm">
         <div className="flex items-center gap-4">
           <div className="text-6xl">🎨</div>
           <div>
@@ -148,7 +151,7 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
 
       <VisualLessonPlayer lesson={lesson} grade={child.grade} board={board} subject={subject} chapter={selectedChapter} selectedConcept={selectedConcept} source="Catalog / uploaded material aware" />
 
-      <button className="mt-5 inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-3 font-black text-white">
+      <button className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white">
         <Sparkles className="h-5 w-5" /> Ask AI to simplify more
       </button>
     </AppShell>
@@ -169,7 +172,7 @@ function LabeledSelect({
   return (
     <label className="grid gap-1">
       <span className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</span>
-      <select className="rounded-xl border border-purple-100 bg-white px-4 py-3 font-bold shadow-sm" value={value} onChange={(event) => onChange(event.target.value)}>
+      <select className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm" value={value} onChange={(event) => onChange(event.target.value)}>
         {options.map((option) => (
           <option key={option} value={option}>
             {option}

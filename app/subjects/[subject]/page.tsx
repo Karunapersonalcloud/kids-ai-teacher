@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/shared/app-shell";
+import { PageHeader } from "@/components/shared/page-header";
 import { SubjectActions } from "@/components/subjects/subject-actions";
 import { children, getChild, getSubjectBySlug } from "@/lib/mock-data";
 import { getSubjectMaterialState, resolveChaptersForChildSubject, type ResolvedChapter } from "@/lib/learning/chapter-resolver";
@@ -24,26 +25,24 @@ export default async function SubjectDetailPage({
 
   return (
     <AppShell activeChildAvatar={childProfile.avatar}>
-      <section className={`rounded-3xl border p-6 shadow-sm ${subject.bg} ${subject.border}`}>
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <PageHeader
+        badge={`${childProfile.grade} · ${board}`}
+        title={`${subject.name} for ${childProfile.name}`}
+        subtitle={subject.description}
+        actions={
           <div className="flex items-center gap-4">
-            <div className={`flex h-16 w-16 items-center justify-center rounded-2xl bg-white ${subject.color}`}>
+            <div className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 ${subject.color}`}>
               <Icon className="h-8 w-8" />
             </div>
-            <div>
-              <h1 className="text-3xl font-black">{subject.name} for {childProfile.name}</h1>
-              <p className="mt-1 font-semibold text-slate-600">{childProfile.grade} · {board}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-600">{subject.description}</p>
-            </div>
+            <Link href={`/ai-teacher?subject=${subject.slug}&child=${childId}`} className="rounded-2xl bg-slate-950 px-5 py-3 text-center text-sm font-black text-white shadow-sm">
+              Ask AI Teacher
+            </Link>
           </div>
-          <Link href={`/ai-teacher?subject=${subject.slug}&child=${childId}`} className="rounded-xl bg-purple-600 px-5 py-3 text-center font-black text-white shadow-sm">
-            Teach this topic
-          </Link>
-        </div>
-      </section>
+        }
+      />
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_360px]">
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-xl font-black text-purple-700">Chapters & Concepts</h2>
@@ -63,7 +62,7 @@ export default async function SubjectDetailPage({
             )}
           </div>
 
-          <div className="grid gap-4">
+          <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
             {chapters.map((chapter) => (
               <ChapterCard key={`${chapter.chapterNumber}-${chapter.chapterName}`} chapter={chapter} childId={childId} subjectName={subject.name} subjectSlug={subject.slug} />
             ))}
@@ -71,7 +70,7 @@ export default async function SubjectDetailPage({
         </section>
 
         <aside className="space-y-5">
-          <section className="rounded-2xl bg-white p-5 shadow-sm">
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="mb-4 font-black text-purple-700">Uploaded Materials</h2>
             <div className="space-y-3">
               {materialState.uploads.slice(0, 5).map((upload) => (
@@ -87,7 +86,7 @@ export default async function SubjectDetailPage({
               )}
             </div>
           </section>
-          <section className="rounded-2xl bg-purple-600 p-5 text-white shadow-sm">
+          <section className="rounded-3xl bg-slate-950 p-5 text-white shadow-sm">
             <h2 className="font-black">AI Study Path</h2>
             <p className="mt-2 text-sm font-semibold text-white/85">Start from basics, use visuals, practice small questions, then prepare for test-style answers.</p>
           </section>
@@ -118,7 +117,7 @@ function ChapterCard({
   const chapterSlug = `${chapter.chapterNumber}-${chapter.chapterName}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
   return (
-    <article className="rounded-3xl border border-slate-100 bg-slate-50 p-5">
+    <article className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap gap-2">

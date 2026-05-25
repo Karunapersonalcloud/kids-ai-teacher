@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Brain, Cloud, Search, UploadCloud } from "lucide-react";
 import { AppShell } from "@/components/shared/app-shell";
 import { ChildSelect, MaterialTypeSelect, SubjectSelect } from "@/components/shared/controls";
+import { PageHeader } from "@/components/shared/page-header";
 import { getChild, getSubjectsForChild, materialTypes, mockUploads } from "@/lib/mock-data";
 import type { ChildId, MaterialType, UploadRecord } from "@/lib/types";
 
@@ -212,7 +213,13 @@ export function UploadManager() {
 
   return (
     <AppShell activeChildAvatar={child.avatar}>
-      <section className="mb-5 rounded-2xl bg-white p-5 shadow-sm">
+      <PageHeader
+        badge="Materials"
+        title="Uploads and textbook materials"
+        subtitle="Upload authorized textbooks, homework, worksheets, PPTs, and chapter photos. Indexed materials become available for textbook-grounded AI teaching."
+      />
+
+      <section className="mb-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-xl font-black text-purple-700">Local Textbook Folders</h2>
@@ -220,7 +227,7 @@ export function UploadManager() {
           </div>
           <button onClick={scanLocalFolders} className="rounded-xl bg-purple-600 px-4 py-3 text-sm font-black text-white">Scan</button>
         </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
           {localFolders.map((folder) => (
             <article key={folder.folderKey} className="rounded-2xl bg-purple-50 p-4">
               <div className="mb-3 flex items-start justify-between gap-3">
@@ -263,9 +270,9 @@ export function UploadManager() {
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
-        <form onSubmit={submitUpload} className="rounded-2xl bg-white p-5 shadow-sm">
-          <h1 className="mb-4 flex items-center gap-2 text-2xl font-black text-purple-700">
+      <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)] 2xl:grid-cols-[460px_minmax(0,1fr)]">
+        <form onSubmit={submitUpload} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h1 className="mb-4 flex items-center gap-2 text-2xl font-black text-slate-950">
             <UploadCloud className="h-6 w-6" /> Upload & Study Materials
           </h1>
           <label className="mb-4 flex min-h-[190px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-300 bg-blue-50 p-5 text-center hover:bg-blue-100">
@@ -296,7 +303,7 @@ export function UploadManager() {
           </div>
         </form>
 
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex flex-col gap-3">
             <h2 className="text-xl font-black text-purple-700">Recent Files</h2>
             <div className="grid gap-2 md:grid-cols-4">
@@ -365,7 +372,7 @@ export function UploadManager() {
         </section>
       </div>
 
-      <section className="mt-5 rounded-2xl bg-white p-5 shadow-sm">
+      <section className="mt-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-2">
           <Cloud className="h-6 w-6 text-blue-600" />
           <div>
@@ -373,7 +380,7 @@ export function UploadManager() {
             <p className="text-sm font-semibold text-slate-500">{driveNotice || "Drive discovery is ready."}</p>
           </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {driveFiles.map((file) => (
             <article key={file.id} className="rounded-2xl bg-blue-50 p-4">
               <span className={`mb-3 inline-flex rounded-full px-3 py-1 text-xs font-black ${importedDriveIds.includes(file.id) ? "bg-green-100 text-green-700" : "bg-white text-blue-700"}`}>

@@ -11,6 +11,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { AppShell } from "@/components/shared/app-shell";
+import { PageHeader } from "@/components/shared/page-header";
 import { children, getSubjectsForChild } from "@/lib/mock-data";
 import type { ChildId } from "@/lib/types";
 
@@ -44,27 +45,21 @@ export function DashboardHome() {
 
   return (
     <AppShell activeChildAvatar={selectedChild.avatar}>
-      <div className="mx-auto max-w-7xl space-y-5">
-        <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-purple-100 md:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-bold text-purple-700">ConceptKid parent workspace</p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
-                Today, focus on one clear next step.
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-                Visual learning stays friendly, but diagnostics and chapter exams are strict. Target mastery is 95% before moving to the next chapter.
-              </p>
-            </div>
+      <div className="w-full space-y-5">
+        <PageHeader
+          badge="ConceptKid parent workspace"
+          title="Today, focus on one clear next step."
+          subtitle="Visual learning stays friendly, but diagnostics and chapter exams are strict. Target mastery is 95% before moving to the next chapter."
+          actions={
             <div className="grid grid-cols-3 gap-2 text-center">
               <Metric label="Target" value="95%" />
               <Metric label="Current" value={`${plan.mastery}%`} />
               <Metric label="Risk" value={plan.risk} />
             </div>
-          </div>
-        </section>
+          }
+        />
 
-        <section className="rounded-3xl bg-white p-3 shadow-sm ring-1 ring-purple-100">
+        <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
           {children.length > 1 ? (
             <div className="flex flex-wrap gap-2">
               {children.map((child) => {
@@ -94,9 +89,9 @@ export function DashboardHome() {
           )}
         </section>
 
-        <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
           <main className="space-y-5">
-            <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-purple-100">
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
               <div className="flex gap-2 overflow-x-auto border-b border-slate-100 p-3">
                 {tabs.map((tab) => (
                   <button
@@ -177,7 +172,7 @@ function ChildSummary({ child }: { child: (typeof children)[number] }) {
 function LearnTab({ childId, plan, subjects }: { childId: ChildId; plan: (typeof childPlans)[ChildId]; subjects: ReturnType<typeof getSubjectsForChild> }) {
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
-      <div className="rounded-3xl bg-slate-50 p-5">
+      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
         <div className="flex items-center gap-2 text-sm font-black text-purple-700">
           <BookOpen className="h-4 w-4" /> Today&apos;s learning target
         </div>
@@ -188,7 +183,7 @@ function LearnTab({ childId, plan, subjects }: { childId: ChildId; plan: (typeof
           <Link href="/ai-teacher" className="rounded-2xl bg-white px-4 py-2 text-sm font-black text-slate-700 ring-1 ring-slate-200">Ask AI Teacher</Link>
         </div>
       </div>
-      <div className="rounded-3xl bg-white p-5 ring-1 ring-slate-100">
+      <div className="rounded-3xl border border-slate-200 bg-white p-5">
         <div className="text-sm font-black text-slate-950">Subjects</div>
         <div className="mt-3 space-y-2">
           {subjects.map((subject) => (

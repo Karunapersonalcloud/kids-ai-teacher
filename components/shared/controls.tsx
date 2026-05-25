@@ -12,7 +12,7 @@ export function ChildSelect({
   className?: string;
 }) {
   return (
-    <select className={`rounded-xl border border-purple-100 bg-white px-4 py-3 font-bold shadow-sm ${className}`} value={value} onChange={(event) => onChange(event.target.value as ChildId)}>
+    <select className={`rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm ${className}`} value={value} onChange={(event) => onChange(event.target.value as ChildId)}>
       {children.map((child) => (
         <option key={child.id} value={child.id}>
           {child.name} - {child.grade}
@@ -36,7 +36,7 @@ export function SubjectSelect({
   const catalogSubjects = getSubjectsForGrade(getChild(childId).grade);
   const subjectNames = Array.from(new Set([...getSubjectsForChild(childId).map((subject) => subject.name), ...catalogSubjects]));
   return (
-    <select className={`rounded-xl border border-purple-100 bg-white px-4 py-3 font-bold shadow-sm ${className}`} value={value} onChange={(event) => onChange(event.target.value)}>
+    <select className={`rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm ${className}`} value={value} onChange={(event) => onChange(event.target.value)}>
       {subjectNames.map((subject) => (
         <option key={subject} value={subject}>
           {subject}
@@ -54,7 +54,7 @@ export function MaterialTypeSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <select className="rounded-xl border border-purple-100 bg-white px-4 py-3 font-bold shadow-sm" value={value} onChange={(event) => onChange(event.target.value)}>
+    <select className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm" value={value} onChange={(event) => onChange(event.target.value)}>
       {materialTypes.map((type) => (
         <option key={type} value={type}>
           {type}
@@ -65,5 +65,5 @@ export function MaterialTypeSelect({
 }
 
 export function SectionCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <section className={`rounded-2xl bg-white p-5 shadow-sm ${className}`}>{children}</section>;
+  return <section className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>{children}</section>;
 }
