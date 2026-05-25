@@ -10,7 +10,7 @@ export function BrandLogo({ variant = "compact", showText = true, className = ""
   if (variant === "wide") {
     return (
       <span className={`inline-flex items-center ${className}`}>
-        <Image src="/brand/conceptkid-logo-wide-v3.png" alt="ConceptKid Kids AI Teacher" width={820} height={230} priority className="h-14 w-auto object-contain md:h-16" />
+        <Image src="/brand/conceptkid-logo-wide-v2.png" alt="ConceptKid Kids AI Teacher" width={820} height={230} priority className="h-14 w-auto object-contain md:h-16" />
       </span>
     );
   }
@@ -18,7 +18,7 @@ export function BrandLogo({ variant = "compact", showText = true, className = ""
   return (
     <span className={`inline-flex items-center gap-3 ${className}`}>
       <Image
-        src="/brand/conceptkid-logo-v3.png"
+        src="/brand/conceptkid-logo-v2.png"
         alt="ConceptKid logo"
         width={44}
         height={44}

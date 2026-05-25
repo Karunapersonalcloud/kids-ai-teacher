@@ -3,16 +3,16 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.conceptkid.in"),
-  title: "ConceptKid - Kids AI Teacher",
-  description: "A kid-friendly AI education dashboard for children and parents.",
+  title: "ConceptKid - Personal AI Learning Coach for Children",
+  description: "Visual chapter learning, diagnostic checks, weak-area strengthening, and parent progress tracking.",
   openGraph: {
-    title: "ConceptKid - Kids AI Teacher",
-    description: "A kid-friendly AI education dashboard for children and parents.",
+    title: "ConceptKid - Personal AI Learning Coach for Children",
+    description: "Visual chapter learning, diagnostic checks, weak-area strengthening, and parent progress tracking.",
     url: "https://www.conceptkid.in",
     siteName: "ConceptKid",
     images: [
       {
-        url: "/brand/conceptkid-og-v3.png",
+        url: "/brand/conceptkid-og-v2.png",
         width: 1200,
         height: 630,
         alt: "ConceptKid Kids AI Teacher",
@@ -21,14 +21,14 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ConceptKid - Kids AI Teacher",
-    description: "A kid-friendly AI education dashboard for children and parents.",
-    images: ["/brand/conceptkid-og-v3.png"],
+    title: "ConceptKid - Personal AI Learning Coach for Children",
+    description: "Visual chapter learning, diagnostic checks, weak-area strengthening, and parent progress tracking.",
+    images: ["/brand/conceptkid-og-v2.png"],
   },
   icons: {
-    icon: "/brand/favicon-v3.png",
-    shortcut: "/brand/favicon-v3.png",
-    apple: "/brand/apple-touch-icon.png",
+    icon: "/brand/favicon-v2.png",
+    shortcut: "/brand/favicon-v2.png",
+    apple: "/brand/apple-touch-icon-v2.png",
   },
 };
 
