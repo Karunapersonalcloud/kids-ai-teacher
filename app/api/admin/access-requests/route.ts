@@ -1,5 +1,5 @@
 import { getLimitsForPlan } from "@/lib/access-control";
-import { generateTemporaryPin, normalizeLoginIdentifier, readAccessRequests, type AccessRequest, updateAccessRequest } from "@/lib/access-store";
+import { dedupeAccessRequests, generateTemporaryPin, normalizeLoginIdentifier, readAccessRequests, type AccessRequest, updateAccessRequest } from "@/lib/access-store";
 import { hashPin } from "@/lib/credentials";
 import { sendApprovalEmail } from "@/lib/email/email-provider";
 import { buildLoginInstructions } from "@/lib/email/templates";
@@ -11,7 +11,20 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   if (!(await isAdmin(request))) return Response.json({ error: "Admin access required." }, { status: 403 });
-  return Response.json({ requests: await readAccessRequests() });
+  const requests = await readAccessRequests();
+  const deduped = dedupeAccessRequests(requests);
+  if (process.env.NODE_ENV !== "production") {
+    console.info("[admin][access-requests] Dedupe summary", {
+      before: requests.length,
+      after: deduped.records.length,
+      duplicateGroups: deduped.duplicateGroups.map((group) => ({
+        canonicalId: group.canonicalId,
+        duplicateIds: group.duplicateIds,
+        identifiers: group.identifiers,
+      })),
+    });
+  }
+  return Response.json({ requests: deduped.records });
 }
 
 export async function PATCH(request: Request) {

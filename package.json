@@ -12,6 +12,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "db:seed": "node prisma/seed.mjs",
+    "duplicates:report": "node scripts/duplicate-access-report.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {

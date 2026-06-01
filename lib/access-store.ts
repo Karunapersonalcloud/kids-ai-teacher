@@ -67,6 +67,22 @@ export type AccessRequest = {
   updatedAt: string;
 };
 
+export type CreateAccessRequestOutcome = "created" | "updated_pending" | "already_approved" | "blocked" | "rejected";
+
+export type CreateAccessRequestResult = {
+  record: AccessRequest;
+  outcome: CreateAccessRequestOutcome;
+};
+
+export type DedupeAccessRequestsResult = {
+  records: AccessRequest[];
+  duplicateGroups: Array<{
+    canonicalId: string;
+    duplicateIds: string[];
+    identifiers: string[];
+  }>;
+};
+
 const accessRoot = path.join(process.cwd(), "storage");
 const accessPath = path.join(accessRoot, "access-requests.json");
 
@@ -130,13 +146,140 @@ export function normalizeEmail(value: string) {
 }
 
 export function normalizeMobile(value: string) {
-  return value.trim().replace(/[\s()-]/g, "");
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith("0")) return digits.slice(1);
+  return digits;
 }
 
 export function normalizeLoginIdentifier(identifier: string) {
   const trimmed = identifier.trim();
   if (!trimmed) return "";
   return trimmed.includes("@") ? normalizeEmail(trimmed) : normalizeMobile(trimmed);
+}
+
+function statusPriority(status: string) {
+  if (status === "active") return 6;
+  if (status === "trial") return 5;
+  if (status === "pending") return 4;
+  if (status === "expired") return 3;
+  if (status === "blocked") return 2;
+  if (status === "rejected") return 1;
+  return 0;
+}
+
+function timestampValue(value?: string) {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function compareAccessPriority(a: AccessRequest, b: AccessRequest) {
+  const statusDiff = statusPriority(b.status) - statusPriority(a.status);
+  if (statusDiff !== 0) return statusDiff;
+  const updatedDiff = timestampValue(b.updatedAt) - timestampValue(a.updatedAt);
+  if (updatedDiff !== 0) return updatedDiff;
+  const createdDiff = timestampValue(b.createdAt) - timestampValue(a.createdAt);
+  if (createdDiff !== 0) return createdDiff;
+  return b.id.localeCompare(a.id);
+}
+
+function identityKeys(record: AccessRequest) {
+  const keys: string[] = [];
+  const email = normalizeEmail(record.email || "");
+  const mobile = normalizeMobile(record.mobile || "");
+  const login = normalizeLoginIdentifier(record.loginIdentifier || "");
+  if (email) keys.push(`email:${email}`);
+  if (mobile) keys.push(`mobile:${mobile}`);
+  if (login) keys.push(`login:${login}`);
+  return keys;
+}
+
+export function dedupeAccessRequests(records: AccessRequest[]): DedupeAccessRequestsResult {
+  if (records.length <= 1) {
+    return { records, duplicateGroups: [] };
+  }
+
+  const parent = records.map((_, index) => index);
+  const find = (index: number): number => {
+    let root = index;
+    while (parent[root] !== root) root = parent[root];
+    while (parent[index] !== index) {
+      const next = parent[index];
+      parent[index] = root;
+      index = next;
+    }
+    return root;
+  };
+  const union = (a: number, b: number) => {
+    const rootA = find(a);
+    const rootB = find(b);
+    if (rootA !== rootB) parent[rootB] = rootA;
+  };
+
+  const seenByKey = new Map<string, number>();
+  for (let index = 0; index < records.length; index++) {
+    for (const key of identityKeys(records[index])) {
+      const seen = seenByKey.get(key);
+      if (seen === undefined) {
+        seenByKey.set(key, index);
+      } else {
+        union(index, seen);
+      }
+    }
+  }
+
+  const groups = new Map<number, number[]>();
+  for (let index = 0; index < records.length; index++) {
+    const root = find(index);
+    const current = groups.get(root) || [];
+    current.push(index);
+    groups.set(root, current);
+  }
+
+  const canonicalRecords: AccessRequest[] = [];
+  const duplicateGroups: DedupeAccessRequestsResult["duplicateGroups"] = [];
+
+  for (const indices of groups.values()) {
+    const groupRecords = indices.map((index) => records[index]).sort(compareAccessPriority);
+    const canonical = groupRecords[0];
+    canonicalRecords.push(canonical);
+    if (groupRecords.length > 1) {
+      const identifiers = Array.from(new Set(groupRecords.flatMap(identityKeys))).sort();
+      duplicateGroups.push({
+        canonicalId: canonical.id,
+        duplicateIds: groupRecords.slice(1).map((record) => record.id),
+        identifiers,
+      });
+    }
+  }
+
+  canonicalRecords.sort(compareAccessPriority);
+  return { records: canonicalRecords, duplicateGroups };
+}
+
+function registrationOutcomeForStatus(status: string): CreateAccessRequestOutcome {
+  if (status === "active" || status === "trial") return "already_approved";
+  if (status === "blocked") return "blocked";
+  if (status === "rejected") return "rejected";
+  return "updated_pending";
+}
+
+function findExistingByIdentity(records: AccessRequest[], normalizedEmail: string, normalizedMobile: string, normalizedLoginIdentifier: string) {
+  return records
+    .filter((record) => {
+      const email = normalizeEmail(record.email || "");
+      const mobile = normalizeMobile(record.mobile || "");
+      const loginIdentifier = normalizeLoginIdentifier(record.loginIdentifier || "");
+      return Boolean(
+        (normalizedEmail && email === normalizedEmail) ||
+          (normalizedMobile && mobile === normalizedMobile) ||
+          (normalizedLoginIdentifier && loginIdentifier === normalizedLoginIdentifier)
+      );
+    })
+    .sort(compareAccessPriority)
+    .at(0);
 }
 
 export async function readAccessRequests(): Promise<AccessRequest[]> {
@@ -201,7 +344,7 @@ export async function createAccessRequest(
     | "weakSubjects"
     | "learningGoal"
   >
-) {
+): Promise<CreateAccessRequestResult> {
   const normalizedEmail = normalizeEmail(input.email);
   const normalizedMobile = normalizeMobile(input.mobile);
   const loginIdentifier = normalizeLoginIdentifier(input.email || input.mobile);
@@ -209,9 +352,30 @@ export async function createAccessRequest(
   if (isPostgresEnabled()) {
     const now = new Date();
     const existing = await prisma.accessRequest.findFirst({
-      where: { email: { equals: normalizedEmail, mode: "insensitive" } },
+      where: {
+        OR: [
+          ...(normalizedEmail ? [{ email: { equals: normalizedEmail, mode: "insensitive" as const } }] : []),
+          ...(normalizedMobile ? [{ mobile: normalizedMobile }] : []),
+          ...(loginIdentifier ? [{ loginIdentifier: { equals: loginIdentifier, mode: "insensitive" as const } }] : []),
+        ],
+      },
       orderBy: { updatedAt: "desc" },
     });
+
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(normalizedEmail ? [{ email: { equals: normalizedEmail, mode: "insensitive" as const } }] : []),
+          ...(normalizedMobile ? [{ mobile: normalizedMobile }] : []),
+          ...(loginIdentifier ? [{ loginIdentifier: { equals: loginIdentifier, mode: "insensitive" as const } }] : []),
+        ],
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (!existing && existingUser) {
+      return { record: accessFromUser(existingUser), outcome: registrationOutcomeForStatus(existingUser.status) };
+    }
 
     const baseData = {
       parentName: input.parentName,
@@ -241,6 +405,14 @@ export async function createAccessRequest(
       mustChangeCredentials: false,
     };
 
+    if (existing) {
+      const existingRecord = accessFromRequest(existing);
+      const outcome = registrationOutcomeForStatus(existingRecord.status);
+      if (outcome !== "updated_pending") {
+        return { record: existingRecord, outcome };
+      }
+    }
+
     const record = existing
       ? await prisma.accessRequest.update({
           where: { id: existing.id },
@@ -256,7 +428,7 @@ export async function createAccessRequest(
             userType: "externalUser",
           },
         });
-    return accessFromRequest(record);
+    return { record: accessFromRequest(record), outcome: existing ? "updated_pending" : "created" };
   }
 
   const now = new Date().toISOString();
@@ -288,8 +460,31 @@ export async function createAccessRequest(
     updatedAt: now,
   };
   const requests = await readAccessRequests();
-  await writeAccessRequests([record, ...requests.filter((request) => normalizeEmail(request.email) !== record.email)]);
-  return record;
+  const existing = findExistingByIdentity(requests, normalizedEmail, normalizedMobile, loginIdentifier);
+  if (existing) {
+    const outcome = registrationOutcomeForStatus(existing.status);
+    if (outcome !== "updated_pending") {
+      return { record: existing, outcome };
+    }
+    const updated = {
+      ...existing,
+      ...record,
+      id: existing.id,
+      status: "pending" as const,
+      role: existing.role,
+      userType: existing.userType,
+      plan: "demo" as const,
+      credentialHash: undefined,
+      tempPin: undefined,
+      mustChangeCredentials: false,
+      updatedAt: now,
+    };
+    await writeAccessRequests([updated, ...requests.filter((request) => request.id !== existing.id)]);
+    return { record: updated, outcome: "updated_pending" };
+  }
+
+  await writeAccessRequests([record, ...requests]);
+  return { record, outcome: "created" };
 }
 
 export async function updateAccessRequest(id: string, patch: Partial<AccessRequest>) {

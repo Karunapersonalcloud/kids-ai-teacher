@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     r3Language: primaryR3,
   });
 
-  const record = await createAccessRequest({
+  const result = await createAccessRequest({
     parentName: String(body.parentName),
     email: String(body.email),
     mobile: String(body.mobile),
@@ -101,10 +101,27 @@ export async function POST(request: Request) {
     learningGoal: primary ? primary.learningGoal : String(body.learningGoal || ""),
   });
 
+  if (result.outcome === "already_approved") {
+    return Response.json({
+      request: result.record,
+      message: "This account is already approved. Please login.",
+    });
+  }
+
+  if (result.outcome === "blocked") {
+    return Response.json({ error: "This account is blocked. Contact support." }, { status: 403 });
+  }
+
+  if (result.outcome === "rejected") {
+    return Response.json({ error: "This account was rejected. Contact support." }, { status: 403 });
+  }
+
   return Response.json({
-    request: record,
+    request: result.record,
     message:
-      children.length > 1
+      result.outcome === "updated_pending"
+        ? "Registration already exists and has been updated. Access will be enabled after admin approval."
+        : children.length > 1
         ? `Registration submitted for ${children.length} children. Access will be enabled after admin approval.`
         : "Registration submitted. Access will be enabled after admin approval.",
   });
