@@ -315,21 +315,47 @@ export const mockUploads: UploadRecord[] = [
 export const mockVisualLesson: VisualLesson = {
   title: "Fractions Made Visual",
   gradeLevel: "Class 9 foundation recovery",
-  simpleExplanation: "A fraction shows part of a whole. If a pizza has 4 equal slices and you eat 1, you ate 1/4.",
-  visualSteps: [
-    { title: "Whole", icon: "🍕", description: "Start with one complete thing." },
-    { title: "Equal parts", icon: "➗", description: "Cut it into equal pieces so each part is fair." },
-    { title: "Chosen parts", icon: "✅", description: "Count how many parts we are talking about." },
-    { title: "Fraction name", icon: "🔢", description: "Top number is chosen parts, bottom number is total parts." },
-  ],
-  realLifeExample: "Sharing 1 chocolate bar equally among 4 friends means each friend gets 1/4.",
-  vocabulary: [
-    { word: "Numerator", meaning: "The top number. It tells selected parts." },
-    { word: "Denominator", meaning: "The bottom number. It tells total equal parts." },
-  ],
-  memoryTrick: "Downstairs denominator tells the total doors in the house.",
-  quiz: [
-    { question: "If a cake is cut into 8 equal parts and you eat 2, what fraction did you eat?", options: ["2/8", "8/2", "1/8"], answer: "2/8" },
+  slides: [
+    {
+      slideType: "hook",
+      title: "What does one part of a whole look like?",
+      teacherScript: "A fraction is a way to show selected equal parts of one whole. We first see the whole, then we count the equal parts.",
+      visualType: "two-column-card",
+      visualData: {
+        leftTitle: "Whole",
+        leftExamples: ["One complete bar", "One complete circle"],
+        rightTitle: "Parts",
+        rightExamples: ["1 out of 4 equal parts", "3 out of 8 equal parts"],
+      },
+      keyPoints: ["Fractions start with one whole.", "The parts must be equal."],
+    },
+    {
+      slideType: "definition",
+      title: "Fraction form",
+      teacherScript: "A fraction has a top number and a bottom number. The top number tells selected parts. The bottom number tells total equal parts.",
+      visualType: "formula-card",
+      visualData: {
+        formula: "selected parts / total equal parts",
+        validFor: "2/8 means 2 selected parts out of 8 equal parts.",
+        notValidFor: "Unequal pieces cannot be named fairly with one simple fraction.",
+      },
+      keyPoints: ["Top number is selected parts.", "Bottom number is total equal parts."],
+    },
+    {
+      slideType: "quick-check",
+      title: "Quick check",
+      teacherScript: "If a shape has 8 equal parts and 2 parts are shaded, the fraction is 2 by 8.",
+      visualType: "quiz-card",
+      visualData: {
+        question: "A cake has 8 equal slices. You eat 2 slices. What fraction did you eat?",
+        options: ["2/8", "8/2", "1/8", "2"],
+        correctAnswer: "2/8",
+        explanation: "The selected parts are 2 and the total equal parts are 8.",
+      },
+      keyPoints: ["Selected parts go on top.", "Total equal parts go below."],
+      studentQuestion: "What number should go below the line?",
+      answer: "The total number of equal parts.",
+    },
   ],
 };
 

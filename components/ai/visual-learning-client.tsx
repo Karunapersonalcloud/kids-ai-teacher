@@ -37,6 +37,7 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
   const [selection, setSelection] = useState<VisualSelection>(() => getInitialSelection(initialParams));
   const [lesson, setLesson] = useState<VisualLesson>(mockVisualLesson);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const { childId, subject, chapterNumber, concept } = selection;
   const child = getChild(childId);
   const board = "CBSE";
@@ -48,25 +49,33 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
 
   async function createLesson() {
     setLoading(true);
-    const response = await fetch("/api/ai-teacher/visual-lesson", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        childId,
-        childName: child.name,
-        grade: child.grade,
-        board,
-        subject,
-        chapterNumber: selectedChapter.number,
-        chapterName: selectedChapter.name,
-        conceptName: selectedConcept,
-        concepts: selectedChapter.concepts,
-        topic: selectedConcept,
-      }),
-    });
-    const data = (await response.json()) as VisualLesson;
-    setLesson(data);
-    setLoading(false);
+    setError("");
+    try {
+      const response = await fetch("/api/ai-teacher/visual-lesson", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          childId,
+          childName: child.name,
+          grade: child.grade,
+          board,
+          subject,
+          chapterNumber: selectedChapter.number,
+          chapterName: selectedChapter.name,
+          conceptName: selectedConcept,
+          concepts: selectedChapter.concepts,
+          topic: selectedConcept,
+        }),
+      });
+      const data = (await response.json()) as Partial<VisualLesson> & { error?: string };
+      if (!response.ok || data.error) {
+        setError(data.error || "Could not create the lesson right now.");
+        return;
+      }
+      setLesson(data as VisualLesson);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -139,17 +148,35 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
         </p>
       </section>
 
-      <section className="mt-5 rounded-3xl bg-slate-950 p-6 text-white shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="text-6xl">🎨</div>
+      {error && <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{error}</p>}
+
+      <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
+              <Sparkles className="h-7 w-7" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-slate-950">{lesson.title}</h1>
+              <p className="mt-1 text-sm font-bold text-slate-500">{lesson.gradeLevel}</p>
+            </div>
+          </div>
           <div>
-            <h1 className="text-3xl font-black">{lesson.title}</h1>
-            <p className="mt-1 text-white/85">{lesson.gradeLevel}</p>
+            <p className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-700">{lesson.slides?.length || 0} teacher slides</p>
           </div>
         </div>
       </section>
 
-      <VisualLessonPlayer lesson={lesson} grade={child.grade} board={board} subject={subject} chapter={selectedChapter} selectedConcept={selectedConcept} source="Catalog / uploaded material aware" />
+      <VisualLessonPlayer
+        key={`${lesson.title}-${selectedConcept}-${lesson.slides?.length || 0}`}
+        lesson={lesson}
+        grade={child.grade}
+        board={board}
+        subject={subject}
+        chapter={selectedChapter}
+        selectedConcept={selectedConcept}
+        source="Catalog / uploaded material aware"
+      />
 
       <button className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white">
         <Sparkles className="h-5 w-5" /> Ask AI to simplify more

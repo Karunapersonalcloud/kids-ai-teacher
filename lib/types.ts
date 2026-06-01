@@ -98,15 +98,37 @@ export type ProgressRecord = {
   lastActiveDate: string;
 };
 
+export type VisualType =
+  | "two-column-card"
+  | "formula-card"
+  | "comparison-table"
+  | "number-line"
+  | "quiz-card"
+  | "example-card"
+  | "mistake-card"
+  | "summary-card";
+
+export type VisualLessonSlide = {
+  slideType: string;
+  title: string;
+  teacherScript: string;
+  visualType: VisualType;
+  visualData: Record<string, unknown>;
+  keyPoints: string[];
+  studentQuestion?: string;
+  answer?: string;
+};
+
 export type VisualLesson = {
   title: string;
   gradeLevel: string;
-  simpleExplanation: string;
-  visualSteps: { title: string; icon: string; description: string }[];
-  realLifeExample: string;
-  vocabulary: { word: string; meaning: string }[];
-  memoryTrick: string;
-  quiz: { question: string; options: string[]; answer: string }[];
+  slides: VisualLessonSlide[];
+  simpleExplanation?: string;
+  visualSteps?: { title: string; icon: string; description: string }[];
+  realLifeExample?: string;
+  vocabulary?: { word: string; meaning: string }[];
+  memoryTrick?: string;
+  quiz?: { question: string; options: string[]; answer: string; explanation?: string }[];
 };
 
 export type QuizQuestion = {
