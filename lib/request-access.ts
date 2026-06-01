@@ -1,5 +1,5 @@
 import type { PlanName } from "./billing-types";
-import { findAccessById, findAccessByIdentifier } from "./access-store";
+import { ensureUserForAccessRequest, findAccessById, findAccessByIdentifier } from "./access-store";
 import { getSessionUserIdFromCookie } from "./session";
 
 export type AccessPolicy = {
@@ -40,8 +40,17 @@ export async function getRequestAccess(request: Request): Promise<RequestAccess>
   const record = sessionUserId ? await findAccessById(sessionUserId) : email ? await findAccessByIdentifier(email) : undefined;
 
   if (record) {
+    let canonicalUserId = record.userId || record.id;
+    if (record.role === "parent" && record.userType === "externalUser" && (record.status === "trial" || record.status === "active")) {
+      try {
+        canonicalUserId = await ensureUserForAccessRequest(record);
+      } catch {
+        canonicalUserId = record.userId || record.id;
+      }
+    }
+
     return {
-      userId: record.id,
+      userId: canonicalUserId,
       role: record.role,
       status: record.status,
       plan: record.plan,

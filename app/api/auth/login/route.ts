@@ -1,4 +1,4 @@
-import { findAccessByIdentifier, normalizeLoginIdentifier, updateAccessRequest } from "@/lib/access-store";
+import { ensureUserForAccessRequest, findAccessByIdentifier, normalizeLoginIdentifier, updateAccessRequest } from "@/lib/access-store";
 import { verifyPin } from "@/lib/credentials";
 import { prisma } from "@/lib/db";
 import { isPostgresEnabled } from "@/lib/persistence-provider";
@@ -95,15 +95,24 @@ export async function POST(request: Request) {
       }
     }
 
-    await updateAccessRequest(user.id, {
-      lastLoginAt: new Date().toISOString(),
-      mustChangeCredentials,
-    });
+    let loginAccess = user;
+    let sessionUserId: string;
+    try {
+      loginAccess =
+        (await updateAccessRequest(user.id, {
+          lastLoginAt: new Date().toISOString(),
+          mustChangeCredentials,
+        })) || user;
+      sessionUserId = await ensureUserForAccessRequest(loginAccess);
+    } catch (error) {
+      console.error("[auth][login][parent] User mapping failed", summarizeLoginError(error));
+      return Response.json({ error: "Login setup is incomplete. Please contact support." }, { status: 503 });
+    }
 
     const headers = new Headers({ "Content-Type": "application/json" });
     const cookieBase = "Path=/; SameSite=Lax";
-    headers.append("Set-Cookie", buildSessionCookie(user.id, request));
-    headers.append("Set-Cookie", `kids_user_id=${encodeURIComponent(user.id)}; ${cookieBase}`);
+    headers.append("Set-Cookie", buildSessionCookie(sessionUserId, request));
+    headers.append("Set-Cookie", `kids_user_id=${encodeURIComponent(sessionUserId)}; ${cookieBase}`);
     headers.append("Set-Cookie", `kids_user_email=${encodeURIComponent(user.email)}; ${cookieBase}`);
     headers.append("Set-Cookie", `kids_access_role=${encodeURIComponent(user.role)}; ${cookieBase}`);
     headers.append("Set-Cookie", `kids_access_status=${encodeURIComponent(user.status)}; ${cookieBase}`);
@@ -111,7 +120,7 @@ export async function POST(request: Request) {
     headers.append("Set-Cookie", `kids_user_type=${encodeURIComponent(user.userType)}; ${cookieBase}`);
     headers.append("Set-Cookie", `kids_must_change_credentials=${String(mustChangeCredentials)}; ${cookieBase}`);
 
-    const safeUser = { ...user, mustChangeCredentials, credentialHash: undefined, tempPin: undefined };
+    const safeUser = { ...loginAccess, mustChangeCredentials, credentialHash: undefined, tempPin: undefined };
     return new Response(JSON.stringify({ user: safeUser, loginType: "parent" }), { headers });
   } catch (error) {
     console.error("[auth][login] Unhandled error", summarizeLoginError(error));

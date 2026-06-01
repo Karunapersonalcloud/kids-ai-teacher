@@ -29,7 +29,7 @@ export default async function DashboardPage() {
     // Mastery-flow gate: if any child of this approved parent has no DiagnosticResult,
     // send the parent to the diagnostic onboarding before the dashboard.
     if (access && isPostgresEnabled()) {
-      const firstChildNeedingDiagnostic = await findFirstChildNeedingDiagnostic(access.id);
+      const firstChildNeedingDiagnostic = await findFirstChildNeedingDiagnostic(access.userId || access.id);
       if (firstChildNeedingDiagnostic) {
         redirect(`/diagnostic?childId=${firstChildNeedingDiagnostic}`);
       }

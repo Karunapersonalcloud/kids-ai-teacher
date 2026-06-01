@@ -39,13 +39,15 @@ export async function readUsageRecords(): Promise<UsageRecord[]> {
 export async function writeUsageRecords(records: UsageRecord[]) {
   if (isPostgresEnabled()) {
     await Promise.all(
-      records.map((record) =>
-        prisma.aiUsage.upsert({
-          where: { actorKey_dateKey_feature: { actorKey: record.userId, dateKey: record.date, feature: "chat" } },
+      records.map(async (record) => {
+        const actorKey = record.userId || "demo-user";
+        const userId = await resolveAiUsageUserId(actorKey);
+        return prisma.aiUsage.upsert({
+          where: { actorKey_dateKey_feature: { actorKey, dateKey: record.date, feature: "chat" } },
           update: { count: record.aiMessages },
-          create: { actorKey: record.userId, userId: record.userId.startsWith("demo") ? null : record.userId, dateKey: record.date, feature: "chat", count: record.aiMessages },
-        })
-      )
+          create: { actorKey, userId, dateKey: record.date, feature: "chat", count: record.aiMessages },
+        });
+      })
     );
     return;
   }
@@ -67,7 +69,7 @@ export async function checkAndIncrementAiUsage(userId: string, plan: PlanName, d
     const updated = await prisma.aiUsage.upsert({
       where: { actorKey_dateKey_feature: { actorKey, dateKey: today, feature: "chat" } },
       update: { count: { increment: 1 } },
-      create: { actorKey, userId: actorKey.startsWith("demo") ? null : actorKey, dateKey: today, feature: "chat", count: 1 },
+      create: { actorKey, userId: await resolveAiUsageUserId(actorKey), dateKey: today, feature: "chat", count: 1 },
     });
     return { allowed: true, used: updated.count, limit };
   }
@@ -82,4 +84,10 @@ export async function checkAndIncrementAiUsage(userId: string, plan: PlanName, d
   const updated = { ...existing, aiMessages: existing.aiMessages + 1 };
   await writeUsageRecords([updated, ...records.filter((record) => !(record.userId === userId && record.date === today))]);
   return { allowed: true, used: updated.aiMessages, limit };
+}
+
+async function resolveAiUsageUserId(actorKey: string) {
+  if (!actorKey || actorKey.startsWith("demo")) return null;
+  const user = await prisma.user.findUnique({ where: { id: actorKey }, select: { id: true } });
+  return user?.id || null;
 }

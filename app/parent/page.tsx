@@ -43,10 +43,11 @@ export default async function ParentDashboardPage({ searchParams }: { searchPara
   if (!userId) redirect("/login");
   const user = await findAccessById(userId);
   if (!user) redirect("/login");
+  const parentUserId = user.userId || user.id;
 
   const children: ChildRow[] = isPostgresEnabled()
     ? (await prisma.child.findMany({
-        where: { userId: user.id },
+        where: { userId: parentUserId },
         orderBy: { createdAt: "asc" },
         select: { id: true, name: true, grade: true, board: true, weakSubjects: true, learningGoal: true },
       }))

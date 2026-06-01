@@ -12,6 +12,7 @@ export type UserType = "internalFamily" | "externalUser";
 
 export type AccessRequest = {
   id: string;
+  userId?: string;
   parentName: string;
   email: string;
   mobile: string;
@@ -516,7 +517,7 @@ export async function updateAccessRequest(id: string, patch: Partial<AccessReque
           metadata: { plan: updated.plan, dailyAiLimit: updated.dailyAiLimit },
         },
       });
-      return accessFromRequest(updated);
+      return accessFromRequest({ ...updated, userId: user.id });
     }
 
     return accessFromRequest(updated);
@@ -601,6 +602,41 @@ export async function findAccessByIdentifier(identifier: string) {
   );
 }
 
+export async function ensureUserForAccessRequest(access: AccessRequest) {
+  if (!isPostgresEnabled() || access.id === "family-admin" || access.role === "admin") {
+    return access.userId || access.id;
+  }
+
+  await ensurePostgresFamilyAdmin();
+
+  if (access.userId) {
+    const linkedUser = await prisma.user.findUnique({ where: { id: access.userId }, select: { id: true } });
+    if (linkedUser) return linkedUser.id;
+  }
+
+  const request = await prisma.accessRequest.findUnique({ where: { id: access.id } });
+  if (!request) {
+    const user = await findUserByAccessIdentity(access);
+    if (user) return user.id;
+    throw new Error("Unable to map parent access to a user account.");
+  }
+
+  if (request.userId) {
+    const linkedUser = await prisma.user.findUnique({ where: { id: request.userId }, select: { id: true } });
+    if (linkedUser) return linkedUser.id;
+  }
+
+  if (request.status !== "trial" && request.status !== "active") {
+    throw new Error("Parent access is not approved.");
+  }
+
+  const user = await upsertApprovedUser(request);
+  if (request.userId !== user.id) {
+    await prisma.accessRequest.update({ where: { id: request.id }, data: { userId: user.id } });
+  }
+  return user.id;
+}
+
 function optionalDate(value?: string | Date | null) {
   if (!value) return undefined;
   return value instanceof Date ? value : new Date(value);
@@ -624,6 +660,23 @@ function parseJson(value?: unknown) {
 function stringifyJson(value: unknown) {
   if (!value) return "";
   return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+async function findUserByAccessIdentity(access: Pick<AccessRequest, "email" | "mobile" | "loginIdentifier">) {
+  const normalizedEmail = normalizeEmail(access.email || "");
+  const normalizedMobile = normalizeMobile(access.mobile || "");
+  const normalizedLoginIdentifier = normalizeLoginIdentifier(access.loginIdentifier || normalizedEmail || normalizedMobile);
+  const identityFilters = [
+    ...(normalizedEmail ? [{ email: { equals: normalizedEmail, mode: "insensitive" as const } }] : []),
+    ...(normalizedMobile ? [{ mobile: normalizedMobile }] : []),
+    ...(normalizedLoginIdentifier ? [{ loginIdentifier: { equals: normalizedLoginIdentifier, mode: "insensitive" as const } }] : []),
+  ];
+  if (!identityFilters.length) return undefined;
+  return prisma.user.findFirst({
+    where: { OR: identityFilters },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true },
+  });
 }
 
 function accessFromUser(user: {
@@ -686,6 +739,7 @@ function accessFromUser(user: {
 
 function accessFromRequest(request: {
   id: string;
+  userId: string | null;
   parentName: string;
   email: string;
   mobile: string;
@@ -741,6 +795,7 @@ function accessFromRequest(request: {
 }): AccessRequest {
   return migrateAccessRequest({
     id: request.id,
+    userId: request.userId || undefined,
     parentName: request.parentName,
     email: request.email,
     mobile: request.mobile,
@@ -1118,6 +1173,7 @@ function migrateAccessRequest(request: Partial<AccessRequest>): AccessRequest {
   const internal = request.id === "family-admin" || request.role === "admin";
   return {
     id: request.id || randomUUID(),
+    userId: request.userId,
     parentName: request.parentName || "Parent",
     email: request.email || "",
     mobile: request.mobile || "",
