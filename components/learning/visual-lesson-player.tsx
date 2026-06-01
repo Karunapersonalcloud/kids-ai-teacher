@@ -1,22 +1,14 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, CircleHelp, Lightbulb, PlusCircle, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, CircleHelp, Lightbulb, Pause, Play, PlusCircle, RefreshCw, RotateCcw, SkipBack, SkipForward } from "lucide-react";
 import { AudioNarrationControls } from "./audio-narration-controls";
 import type { LearningChapter } from "@/lib/learning/chapter-catalog";
-import type { VisualLesson, VisualLessonSlide } from "@/lib/types";
+import type { VisualLesson, VisualLessonScene, VisualLessonSlide, VisualLessonStep } from "@/lib/types";
 
-type CoachMode = "again" | "example" | "question";
+type CoachMode = "again" | "example" | "question" | "practice";
 
-export function VisualLessonPlayer({
-  lesson,
-  grade,
-  board,
-  subject,
-  chapter,
-  selectedConcept,
-  source,
-}: {
+type VisualLessonPlayerProps = {
   lesson: VisualLesson;
   grade: string;
   board: string;
@@ -24,7 +16,24 @@ export function VisualLessonPlayer({
   chapter: LearningChapter;
   selectedConcept: string;
   source: string;
-}) {
+};
+
+export function VisualLessonPlayer(props: VisualLessonPlayerProps) {
+  if (props.lesson.scenes?.length) {
+    return <AnimatedVisualTeacher {...props} />;
+  }
+  return <SlideLessonPlayer {...props} />;
+}
+
+function SlideLessonPlayer({
+  lesson,
+  grade,
+  board,
+  subject,
+  chapter,
+  selectedConcept,
+  source,
+}: VisualLessonPlayerProps) {
   const hasStructuredSlides = Boolean(lesson.slides?.length);
   const concepts = useMemo(
     () => (selectedConcept === "All Concepts" && !hasStructuredSlides ? chapter.concepts : [selectedConcept === "All Concepts" ? "All Concepts" : selectedConcept]),
@@ -70,7 +79,7 @@ export function VisualLessonPlayer({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-sm font-black text-purple-700">Chapter {chapter.number}: {chapter.name}</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-950">{selectedConcept === "All Concepts" ? "Teacher slide deck" : concept}</h2>
+          <h2 className="mt-1 text-2xl font-black text-slate-950">{selectedConcept === "All Concepts" ? "Visual Teacher Mode" : concept}</h2>
           <p className="mt-1 text-sm font-bold text-slate-500">{grade} · {subject} · {board} · Source: {source}</p>
         </div>
         <label className="inline-flex items-center gap-2 rounded-2xl bg-purple-50 px-4 py-2 text-sm font-black text-purple-700">
@@ -208,6 +217,221 @@ export function VisualLessonPlayer({
         </div>
       </div>
     </section>
+  );
+}
+
+function AnimatedVisualTeacher({ lesson, grade, board, subject, chapter, selectedConcept, source }: VisualLessonPlayerProps) {
+  const scenes = lesson.scenes || [];
+  const [sceneIndex, setSceneIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(0);
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [autoRead, setAutoRead] = useState(false);
+  const [coachMode, setCoachMode] = useState<CoachMode | null>(null);
+  const safeSceneIndex = Math.min(sceneIndex, Math.max(0, scenes.length - 1));
+  const scene = scenes[safeSceneIndex];
+  const steps = scene.steps.length ? scene.steps : [{ action: "explain", narration: scene.teacherScript, visual: {} }];
+  const safeStepIndex = Math.min(stepIndex, Math.max(0, steps.length - 1));
+  const step = steps[safeStepIndex];
+  const totalSteps = scenes.reduce((sum, item) => sum + Math.max(1, item.steps.length), 0);
+  const completedSteps = scenes.slice(0, safeSceneIndex).reduce((sum, item) => sum + Math.max(1, item.steps.length), 0) + safeStepIndex + 1;
+  const progress = Math.round((completedSteps / Math.max(1, totalSteps)) * 100);
+  const narrationText = `${scene.title}. ${step.narration || scene.teacherScript}`;
+
+  useEffect(() => {
+    if (!autoPlay) return;
+    const timer = window.setTimeout(() => {
+      setCoachMode(null);
+      if (safeStepIndex < steps.length - 1) {
+        setStepIndex(safeStepIndex + 1);
+        return;
+      }
+      if (safeSceneIndex < scenes.length - 1) {
+        setSceneIndex(safeSceneIndex + 1);
+        setStepIndex(0);
+        return;
+      }
+      setAutoPlay(false);
+    }, 3200);
+    return () => window.clearTimeout(timer);
+  }, [autoPlay, safeSceneIndex, safeStepIndex, scenes.length, steps.length]);
+
+  function goNextStep() {
+    setCoachMode(null);
+    if (safeStepIndex < steps.length - 1) {
+      setStepIndex(safeStepIndex + 1);
+      return;
+    }
+    if (safeSceneIndex < scenes.length - 1) {
+      setSceneIndex(safeSceneIndex + 1);
+      setStepIndex(0);
+    }
+  }
+
+  function goPreviousStep() {
+    setCoachMode(null);
+    if (safeStepIndex > 0) {
+      setStepIndex(safeStepIndex - 1);
+      return;
+    }
+    if (safeSceneIndex > 0) {
+      const previousScene = scenes[safeSceneIndex - 1];
+      setSceneIndex(safeSceneIndex - 1);
+      setStepIndex(Math.max(0, previousScene.steps.length - 1));
+    }
+  }
+
+  function replayScene() {
+    setAutoPlay(false);
+    setCoachMode(null);
+    setStepIndex(0);
+  }
+
+  return (
+    <section className="mt-5 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-purple-100">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black text-purple-700">Chapter {chapter.number}: {chapter.name}</p>
+          <h2 className="mt-1 text-2xl font-black text-slate-950">Visual Teacher Mode</h2>
+          <p className="mt-1 text-sm font-bold text-slate-500">{grade} · {subject} · {board} · {selectedConcept} · Source: {source}</p>
+        </div>
+        <label className="inline-flex items-center gap-2 rounded-2xl bg-purple-50 px-4 py-2 text-sm font-black text-purple-700">
+          <input type="checkbox" checked={autoRead} onChange={(event) => setAutoRead(event.target.checked)} />
+          Auto-read explanation
+        </label>
+      </div>
+
+      <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full bg-purple-600 transition-all duration-500" style={{ width: `${progress}%` }} />
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[260px_1fr]">
+        <aside className="rounded-2xl bg-slate-50 p-4">
+          <h3 className="text-sm font-black text-slate-700">Animated scenes</h3>
+          <div className="mt-3 space-y-2">
+            {scenes.map((item, index) => (
+              <button
+                key={`${item.sceneType}-${item.title}`}
+                onClick={() => {
+                  setAutoPlay(false);
+                  setCoachMode(null);
+                  setSceneIndex(index);
+                  setStepIndex(0);
+                }}
+                className={`w-full rounded-2xl px-3 py-3 text-left text-sm font-black ${index === safeSceneIndex ? "bg-purple-600 text-white" : "bg-white text-slate-600"}`}
+              >
+                <span className="block text-xs opacity-75">Scene {index + 1}</span>
+                {item.title}
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        <div className="space-y-4">
+          <article className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-slate-900 px-5 py-4 text-white">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-purple-200">{scene.sceneType}</p>
+                <h3 className="mt-1 text-xl font-black">{scene.title}</h3>
+              </div>
+              <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black">Step {safeStepIndex + 1} of {steps.length}</span>
+            </div>
+
+            <div className="grid gap-0 2xl:grid-cols-[1fr_320px]">
+              <section className="min-h-[500px] bg-gradient-to-br from-slate-900 via-slate-800 to-purple-950 p-5">
+                <AnimatedSceneBoard scene={scene} stepIndex={safeStepIndex} />
+              </section>
+              <section className="bg-white p-5">
+                <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+                  <BookOpen className="h-4 w-4" /> Teacher explanation
+                </div>
+                <p className="mt-4 text-sm font-semibold leading-6 text-slate-500">{scene.teacherScript}</p>
+                <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+                  <div className="text-xs font-black uppercase tracking-wide text-slate-500">Now watch</div>
+                  <p className="mt-2 text-lg font-black leading-7 text-slate-950">{step.narration}</p>
+                </div>
+                <div className="mt-4 space-y-2">
+                  {steps.map((item, index) => (
+                    <button
+                      key={`${item.action}-${index}`}
+                      onClick={() => {
+                        setAutoPlay(false);
+                        setCoachMode(null);
+                        setStepIndex(index);
+                      }}
+                      className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-black ${index === safeStepIndex ? "bg-purple-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                    >
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-current/10">{index + 1}</span>
+                      {item.action}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
+          </article>
+
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-purple-100">
+            <button onClick={() => setAutoPlay((value) => !value)} className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-black text-white">
+              {autoPlay ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {autoPlay ? "Pause" : "Play"}
+            </button>
+            <button onClick={replayScene} className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-black text-slate-700">
+              <RotateCcw className="h-4 w-4" /> Replay
+            </button>
+            <button onClick={goPreviousStep} className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-black text-slate-700">
+              <SkipBack className="h-4 w-4" /> Previous step
+            </button>
+            <button onClick={goNextStep} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-sm font-black text-white">
+              Next step <SkipForward className="h-4 w-4" />
+            </button>
+            <label className="ml-auto inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700">
+              <input type="checkbox" checked={autoPlay} onChange={(event) => setAutoPlay(event.target.checked)} />
+              Auto-play visual lesson
+            </label>
+          </div>
+
+          <AudioNarrationControls text={narrationText} language="en-IN" autoPlay={autoRead} buttonLabel="Read teacher explanation" />
+
+          <div className="flex flex-wrap gap-2">
+            <CoachButton mode="again" activeMode={coachMode} onClick={setCoachMode} icon={<RefreshCw className="h-4 w-4" />}>
+              Explain again
+            </CoachButton>
+            <CoachButton mode="example" activeMode={coachMode} onClick={setCoachMode} icon={<Lightbulb className="h-4 w-4" />}>
+              Show another visual
+            </CoachButton>
+            <CoachButton mode="question" activeMode={coachMode} onClick={setCoachMode} icon={<CircleHelp className="h-4 w-4" />}>
+              Ask me a question
+            </CoachButton>
+            <CoachButton mode="practice" activeMode={coachMode} onClick={setCoachMode} icon={<PlusCircle className="h-4 w-4" />}>
+              Practice now
+            </CoachButton>
+          </div>
+
+          {coachMode && (
+            <div className="rounded-2xl border border-purple-100 bg-purple-50 p-4 text-sm font-semibold leading-6 text-purple-900">
+              {animatedCoachText(coachMode, scene, step)}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AnimatedSceneBoard({ scene, stepIndex }: { scene: VisualLessonScene; stepIndex: number }) {
+  const visual = mergeStepVisuals(scene.steps, stepIndex);
+  return (
+    <div className="flex min-h-[460px] items-center justify-center rounded-3xl border border-white/10 bg-white/95 p-5 shadow-2xl">
+      {scene.sceneType === "fraction-circle" && <FractionCircleAnimator visual={visual} />}
+      {scene.sceneType === "fraction-bar" && <FractionBarAnimator visual={visual} />}
+      {scene.sceneType === "number-line" && <AnimatedNumberLine visual={visual} />}
+      {scene.sceneType === "comparison-board" && <ComparisonAnimator visual={visual} />}
+      {scene.sceneType === "formula-board" && <FormulaBoardAnimator scene={scene} stepIndex={stepIndex} visual={visual} />}
+      {scene.sceneType === "table-board" && <TableBoardAnimator visual={visual} />}
+      {scene.sceneType === "force-arrows" && <ForceArrowsAnimator visual={visual} />}
+      {scene.sceneType === "motion-track" && <MotionTrackAnimator visual={visual} />}
+      {scene.sceneType === "diagram-label" && <DiagramLabelAnimator visual={visual} />}
+      {scene.sceneType === "quiz-visual" && <QuizSceneAnimator scene={scene} visual={visual} />}
+    </div>
   );
 }
 
@@ -459,6 +683,256 @@ function SummaryVisual({ data, fallbackPoints }: { data: Record<string, unknown>
   );
 }
 
+function FractionCircleAnimator({ visual }: { visual: Record<string, unknown> }) {
+  const parts = Math.max(1, Math.round(getNumber(visual, "parts", getNumber(visual, "totalParts", 1))));
+  const highlighted = clamp(Math.round(getNumber(visual, "highlightedParts", 0)), 0, parts);
+  const highlightedDeg = (highlighted / parts) * 360;
+  const sliceDeg = 360 / parts;
+  const background =
+    parts === 1
+      ? "radial-gradient(circle at 35% 30%, #fff7ed 0 12%, #fdba74 13% 100%)"
+      : `repeating-conic-gradient(from -90deg, rgba(15,23,42,.38) 0deg 1.5deg, transparent 1.5deg ${sliceDeg}deg), conic-gradient(from -90deg, #a855f7 0deg ${highlightedDeg}deg, #fff7ed ${highlightedDeg}deg 360deg)`;
+  return (
+    <div className="grid w-full max-w-3xl gap-6 lg:grid-cols-[1fr_220px] lg:items-center">
+      <div className="flex justify-center">
+        <div className="relative h-72 w-72 rounded-full border-8 border-amber-300 shadow-2xl transition-all duration-700 ease-out" style={{ background }}>
+          <div className="absolute inset-8 rounded-full border border-white/60" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="rounded-full bg-white/90 px-4 py-2 text-xl font-black text-slate-950 shadow-sm">{getString(visual, "label", parts === 1 ? "1 whole" : `${parts} equal parts`)}</span>
+          </div>
+        </div>
+      </div>
+      <FractionNotation visual={visual} highlighted={highlighted} total={parts} />
+    </div>
+  );
+}
+
+function FractionBarAnimator({ visual }: { visual: Record<string, unknown> }) {
+  const parts = Math.max(1, Math.round(getNumber(visual, "parts", getNumber(visual, "totalParts", 1))));
+  const highlighted = clamp(Math.round(getNumber(visual, "highlightedParts", 0)), 0, parts);
+  return (
+    <div className="w-full max-w-4xl">
+      <div className="rounded-3xl bg-slate-100 p-5 shadow-inner">
+        <div className="grid h-28 overflow-hidden rounded-2xl border-4 border-slate-800 bg-white" style={{ gridTemplateColumns: `repeat(${parts}, minmax(0, 1fr))` }}>
+          {Array.from({ length: parts }).map((_, index) => (
+            <div
+              key={index}
+              className={`border-r-2 border-slate-800 transition-all duration-700 last:border-r-0 ${index < highlighted ? "bg-purple-500" : "bg-amber-50"}`}
+              style={{ transform: index < highlighted ? "scaleY(1)" : "scaleY(.92)" }}
+            />
+          ))}
+        </div>
+        <div className="mt-3 flex justify-between text-sm font-black text-slate-500">
+          {Array.from({ length: parts }).map((_, index) => (
+            <span key={index}>{index + 1}</span>
+          ))}
+        </div>
+      </div>
+      <div className="mt-5 flex justify-center">
+        <FractionNotation visual={visual} highlighted={highlighted} total={parts} />
+      </div>
+    </div>
+  );
+}
+
+function FractionNotation({ visual, highlighted, total }: { visual: Record<string, unknown>; highlighted: number; total: number }) {
+  const fraction = getString(visual, "fraction", highlighted > 0 ? `${highlighted}/${total}` : "");
+  if (!fraction) return null;
+  const [top = String(highlighted), bottom = String(total)] = fraction.split("/");
+  return (
+    <div className="rounded-3xl border border-purple-100 bg-white p-5 text-center shadow-sm">
+      <div className="text-xs font-black uppercase tracking-wide text-purple-600">Fraction</div>
+      <div className="mt-3 inline-grid min-w-24 place-items-center text-slate-950">
+        <div className="text-5xl font-black leading-none text-purple-700">{top}</div>
+        <div className="my-2 h-1 w-full rounded-full bg-slate-950" />
+        <div className="text-5xl font-black leading-none">{bottom}</div>
+      </div>
+      <div className="mt-4 grid gap-2 text-xs font-black text-slate-600">
+        <span>{getString(visual, "numeratorLabel", "selected parts")}</span>
+        <span>{getString(visual, "denominatorLabel", "total equal parts")}</span>
+      </div>
+    </div>
+  );
+}
+
+function AnimatedNumberLine({ visual }: { visual: Record<string, unknown> }) {
+  const min = getNumber(visual, "min", 0);
+  const max = getNumber(visual, "max", 2);
+  const markers = getMarkers(visual);
+  return (
+    <div className="w-full max-w-4xl rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+      <div className="relative h-52">
+        <div className="absolute left-4 right-4 top-24 h-2 rounded-full bg-slate-300" />
+        <div className="absolute left-4 top-[86px] h-9 w-2 rounded-full bg-slate-700" />
+        <div className="absolute right-4 top-[86px] h-9 w-2 rounded-full bg-slate-700" />
+        <div className="absolute left-4 top-36 text-lg font-black text-slate-600">{min}</div>
+        <div className="absolute right-4 top-36 text-lg font-black text-slate-600">{max}</div>
+        {markers.map((marker) => {
+          const percent = clamp(((marker.value - min) / Math.max(0.001, max - min)) * 100, 2, 98);
+          return (
+            <div key={`${marker.label}-${marker.value}`} className="absolute top-8 -translate-x-1/2 transition-all duration-700 ease-out" style={{ left: `${percent}%` }}>
+              <div className="mx-auto h-20 w-2 rounded-full bg-purple-600 shadow-lg shadow-purple-200" />
+              <div className="mt-2 max-w-36 rounded-2xl bg-purple-600 px-3 py-2 text-center text-sm font-black leading-5 text-white shadow-sm">{marker.label}</div>
+            </div>
+          );
+        })}
+      </div>
+      {getString(visual, "label") && <p className="text-center text-lg font-black text-purple-700">{getString(visual, "label")}</p>}
+    </div>
+  );
+}
+
+function ComparisonAnimator({ visual }: { visual: Record<string, unknown> }) {
+  const leftLabel = getString(visual, "leftLabel", "First idea");
+  const rightLabel = getString(visual, "rightLabel", "Second idea");
+  const leftValue = clamp(getNumber(visual, "leftValue", parseFractionValue(leftLabel, 0.5)), 0.05, 1);
+  const rightValue = clamp(getNumber(visual, "rightValue", parseFractionValue(rightLabel, 0.25)), 0.05, 1);
+  const winner = getString(visual, "highlightWinner", leftValue >= rightValue ? "left" : "right");
+  return (
+    <div className="w-full max-w-5xl">
+      <div className="grid gap-5 md:grid-cols-2">
+        <ComparisonSide label={leftLabel} value={leftValue} items={getStringArray(visual, "leftItems")} active={winner === "left"} />
+        <ComparisonSide label={rightLabel} value={rightValue} items={getStringArray(visual, "rightItems")} active={winner === "right"} />
+      </div>
+      {getString(visual, "comparison") && <p className="mt-5 rounded-2xl bg-purple-50 p-4 text-center text-xl font-black text-purple-900">{getString(visual, "comparison")}</p>}
+    </div>
+  );
+}
+
+function ComparisonSide({ label, value, items, active }: { label: string; value: number; items: string[]; active: boolean }) {
+  return (
+    <div className={`rounded-3xl border p-5 transition-all duration-500 ${active ? "border-purple-300 bg-purple-50 shadow-lg" : "border-slate-200 bg-white"}`}>
+      <div className="text-center text-3xl font-black text-slate-950">{label}</div>
+      <div className="mt-5 h-28 rounded-2xl bg-slate-100 p-3">
+        <div className="h-full rounded-xl bg-purple-500 transition-all duration-700" style={{ width: `${value * 100}%` }} />
+      </div>
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
+        {items.map((item) => (
+          <span key={item} className="rounded-xl bg-white px-3 py-2 text-sm font-black text-slate-700 shadow-sm">
+            {item}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FormulaBoardAnimator({ scene, stepIndex, visual }: { scene: VisualLessonScene; stepIndex: number; visual: Record<string, unknown> }) {
+  const visibleSteps = scene.steps.slice(0, stepIndex + 1);
+  const lines = getStringArray(visual, "lines");
+  return (
+    <div className="w-full max-w-4xl rounded-3xl bg-slate-950 p-6 text-white shadow-xl">
+      <div className="text-xs font-black uppercase tracking-wide text-purple-200">Smart board writing</div>
+      <div className="mt-5 rounded-2xl bg-white/10 p-5 text-4xl font-black leading-tight text-amber-200">{getString(visual, "formula", lines[0] || scene.title)}</div>
+      <div className="mt-5 grid gap-3">
+        {visibleSteps.map((item, index) => (
+          <div key={`${item.action}-${index}`} className="rounded-2xl bg-white p-4 text-base font-black leading-6 text-slate-900 transition-all duration-500">
+            {getStringArray(item.visual, "lines").join("  ") || item.narration}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TableBoardAnimator({ visual }: { visual: Record<string, unknown> }) {
+  const headers = getStringArray(visual, "headers");
+  const rows = getRows(visual, "rows");
+  return (
+    <div className="w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <table className="w-full border-collapse text-left">
+        <thead className="bg-slate-950 text-white">
+          <tr>
+            {(headers.length ? headers : ["Step", "Idea", "Meaning"]).map((header) => (
+              <th key={header} className="px-4 py-3 text-sm font-black uppercase tracking-wide">
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr key={`${row.join("-")}-${rowIndex}`} className="border-t border-slate-100 transition-colors duration-300">
+              {row.map((cell, cellIndex) => (
+                <td key={`${cell}-${cellIndex}`} className="px-4 py-4 text-base font-bold leading-6 text-slate-700">
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ForceArrowsAnimator({ visual }: { visual: Record<string, unknown> }) {
+  const rightArrow = Boolean(visual.rightArrow ?? true);
+  const leftArrow = Boolean(visual.leftArrow);
+  return (
+    <div className="relative h-80 w-full max-w-4xl rounded-3xl bg-blue-50 p-8 shadow-inner">
+      <div className="absolute left-1/2 top-1/2 flex h-24 w-36 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-3xl bg-white text-lg font-black text-slate-900 shadow-lg ring-1 ring-blue-100">
+        {getString(visual, "objectLabel", "object")}
+      </div>
+      {rightArrow && <div className="absolute left-[55%] top-1/2 h-3 w-44 -translate-y-1/2 rounded-full bg-purple-600 after:absolute after:right-[-2px] after:top-1/2 after:h-8 after:w-8 after:-translate-y-1/2 after:rotate-45 after:border-r-8 after:border-t-8 after:border-purple-600" />}
+      {leftArrow && <div className="absolute right-[55%] top-1/2 h-3 w-44 -translate-y-1/2 rounded-full bg-amber-500 after:absolute after:left-[-2px] after:top-1/2 after:h-8 after:w-8 after:-translate-y-1/2 after:-rotate-135 after:border-r-8 after:border-t-8 after:border-amber-500" />}
+      <p className="absolute bottom-6 left-6 rounded-2xl bg-white px-4 py-2 text-lg font-black text-blue-950 shadow-sm">{getString(visual, "netForce", getString(visual, "forceLabel", "force"))}</p>
+    </div>
+  );
+}
+
+function MotionTrackAnimator({ visual }: { visual: Record<string, unknown> }) {
+  const position = clamp(getNumber(visual, "position", 10), 5, 90);
+  return (
+    <div className="w-full max-w-5xl rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+      <div className="relative h-48">
+        <div className="absolute left-4 right-4 top-28 h-3 rounded-full bg-slate-300" />
+        {Boolean(visual.trail) && <div className="absolute left-8 top-[104px] h-8 rounded-full bg-purple-200 transition-all duration-700" style={{ width: `${position}%` }} />}
+        <div className="absolute top-16 flex h-24 w-24 -translate-x-1/2 items-center justify-center rounded-full bg-purple-600 text-sm font-black text-white shadow-xl transition-all duration-700 ease-out" style={{ left: `${position}%` }}>
+          {getString(visual, "label", "object")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DiagramLabelAnimator({ visual }: { visual: Record<string, unknown> }) {
+  const labels = getStringArray(visual, "labels");
+  return (
+    <div className="relative h-96 w-full max-w-4xl rounded-3xl bg-emerald-50 p-8 shadow-inner">
+      <div className={`absolute left-1/2 top-1/2 flex h-32 w-32 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-center text-lg font-black shadow-lg ${visual.active ? "bg-yellow-200 text-yellow-950" : "bg-white text-slate-900"}`}>
+        {getString(visual, "diagram", "concept")}
+      </div>
+      {labels.map((label, index) => {
+        const angle = (index / Math.max(1, labels.length)) * Math.PI * 2 - Math.PI / 2;
+        const x = 50 + Math.cos(angle) * 34;
+        const y = 50 + Math.sin(angle) * 34;
+        return (
+          <div key={`${label}-${index}`} className="absolute -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white px-4 py-2 text-sm font-black text-emerald-950 shadow-sm transition-all duration-500" style={{ left: `${x}%`, top: `${y}%` }}>
+            {label}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function QuizSceneAnimator({ scene, visual }: { scene: VisualLessonScene; visual: Record<string, unknown> }) {
+  const question = scene.studentQuestion;
+  const quizData = {
+    question: question?.question || getString(visual, "question", "Quick check"),
+    options: question?.options || ["I understand", "I need help"],
+    correctAnswer: question?.answer || question?.options?.[0] || "I understand",
+    explanation: question?.explanation || "Use the visual steps to answer.",
+  };
+  return (
+    <div className="grid w-full max-w-5xl gap-5 lg:grid-cols-[1fr_1.1fr] lg:items-center">
+      {getNumber(visual, "parts", 0) > 0 ? <FractionBarAnimator visual={visual} /> : <FormulaBoardAnimator scene={scene} stepIndex={0} visual={{ formula: getString(visual, "question", "Quick check") }} />}
+      <QuizVisual data={quizData} />
+    </div>
+  );
+}
+
 function buildSlides(concept: string, lesson: VisualLesson): VisualLessonSlide[] {
   if (lesson.slides?.length) return lesson.slides;
   const quiz = lesson.quiz?.[0];
@@ -514,10 +988,56 @@ function coachText(mode: CoachMode, slide: VisualLessonSlide, concept: string) {
     const example = getStringArray(data, "examples")[1] || getStringArray(data, "rightExamples")[0] || getStringArray(data, "leftExamples")[0] || getString(data, "example");
     return example ? `Another example: ${example}. Now explain why it matches or does not match ${concept}.` : `Another example: pick one number, object, or case from your textbook and test whether it follows the rule for ${concept}.`;
   }
+  if (mode === "practice") {
+    return `Practice now: cover the explanation, look only at the visual, and explain ${concept} in one sentence. Then try one similar question from your notebook.`;
+  }
   const data = slide.visualData;
   const question = slide.studentQuestion || getString(data, "question", `Can you explain ${concept} in one sentence?`);
   const answer = slide.answer || getString(data, "correctAnswer");
   return answer ? `${question} Answer after thinking: ${answer}` : question;
+}
+
+function animatedCoachText(mode: CoachMode, scene: VisualLessonScene, step: VisualLessonStep) {
+  if (mode === "again") {
+    return `Watch this step again in simpler words: ${step.narration} The visual is showing one idea at a time, so focus on what changed on the board.`;
+  }
+  if (mode === "example") {
+    return `Another visual: imagine the same action with a different object but the same rule. If the board split a pizza, try a chocolate bar. If it moved a marker, try another point on the same line.`;
+  }
+  if (mode === "practice") {
+    return scene.studentQuestion
+      ? `${scene.studentQuestion.question} Try it before checking: ${scene.studentQuestion.options.join(", ")}.`
+      : "Practice now: pause the animation, draw the current visual in your notebook, and label the parts you can see.";
+  }
+  return scene.studentQuestion
+    ? `${scene.studentQuestion.question} Think first. Answer: ${scene.studentQuestion.answer}.`
+    : `Question: what changed in this step, and why does that change explain ${scene.title}?`;
+}
+
+function mergeStepVisuals(steps: VisualLessonStep[], stepIndex: number) {
+  const merged: Record<string, unknown> = {};
+  steps.slice(0, stepIndex + 1).forEach((step) => {
+    Object.entries(step.visual || {}).forEach(([key, value]) => {
+      if ((key === "rows" || key === "markers") && Array.isArray(merged[key]) && Array.isArray(value)) {
+        merged[key] = [...(merged[key] as unknown[]), ...value];
+        return;
+      }
+      if (key === "labels" && Array.isArray(merged[key]) && Array.isArray(value)) {
+        merged[key] = Array.from(new Set([...(merged[key] as unknown[]), ...value]));
+        return;
+      }
+      merged[key] = value;
+    });
+  });
+  return merged;
+}
+
+function parseFractionValue(label: string, fallback: number) {
+  const match = label.match(/(\d+)\s*\/\s*(\d+)/);
+  if (!match) return fallback;
+  const numerator = Number(match[1]);
+  const denominator = Number(match[2]);
+  return denominator ? numerator / denominator : fallback;
 }
 
 function getString(data: Record<string, unknown>, key: string, fallback = "") {

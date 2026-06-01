@@ -314,7 +314,78 @@ export const mockUploads: UploadRecord[] = [
 
 export const mockVisualLesson: VisualLesson = {
   title: "Fractions Made Visual",
+  lessonTitle: "Fractions Made Visual",
   gradeLevel: "Class 9 foundation recovery",
+  mode: "animated-visual-teacher",
+  scenes: [
+    {
+      sceneType: "fraction-circle",
+      title: "What does one part of a whole look like?",
+      teacherScript: "Imagine this circle is a pizza. First we see one whole, then we divide it into equal parts.",
+      steps: [
+        { action: "showWhole", narration: "This is one whole pizza.", visual: { shape: "circle", label: "1 whole", parts: 1, highlightedParts: 0 } },
+        { action: "divideEqualParts", narration: "Now we divide the whole into 4 equal parts.", visual: { parts: 4, label: "4 equal parts" } },
+        { action: "highlightParts", narration: "If we select 1 part, we say 1 out of 4 parts.", visual: { highlightedParts: 1, totalParts: 4 } },
+        { action: "showFraction", narration: "So the fraction is 1 over 4.", visual: { fraction: "1/4", numeratorLabel: "selected part", denominatorLabel: "total equal parts" } },
+      ],
+    },
+    {
+      sceneType: "fraction-circle",
+      title: "Two selected parts out of eight",
+      teacherScript: "The same whole can be divided into more equal parts. The fraction changes based on selected parts and total parts.",
+      steps: [
+        { action: "showWhole", narration: "Start with the same one whole.", visual: { shape: "circle", label: "1 whole", parts: 1, highlightedParts: 0 } },
+        { action: "divideEqualParts", narration: "Now divide it into 8 equal parts.", visual: { parts: 8, label: "8 equal parts" } },
+        { action: "highlightParts", narration: "Highlight 2 parts. We count 2 selected parts.", visual: { highlightedParts: 2, totalParts: 8 } },
+        { action: "showFraction", narration: "The fraction is 2 over 8.", visual: { fraction: "2/8", numeratorLabel: "2 selected parts", denominatorLabel: "8 total equal parts" } },
+      ],
+      studentQuestion: {
+        question: "If 3 parts are selected out of 8, what is the fraction?",
+        options: ["3/8", "8/3", "3/5", "5/8"],
+        answer: "3/8",
+        explanation: "Selected parts go on top and total equal parts go below.",
+      },
+    },
+    {
+      sceneType: "fraction-bar",
+      title: "Fractions can be shown with bars too",
+      teacherScript: "A fraction does not have to be a circle. A bar can also show equal parts of a whole.",
+      steps: [
+        { action: "showWholeBar", narration: "This full bar is one whole.", visual: { parts: 1, highlightedParts: 0, label: "1 whole bar" } },
+        { action: "splitBar", narration: "Split the bar into 5 equal parts.", visual: { parts: 5, label: "5 equal parts" } },
+        { action: "highlightBarParts", narration: "Highlight 3 parts out of 5.", visual: { highlightedParts: 3, totalParts: 5 } },
+        { action: "showFraction", narration: "The shaded fraction is 3 over 5.", visual: { fraction: "3/5", numeratorLabel: "3 shaded", denominatorLabel: "5 total" } },
+      ],
+      studentQuestion: {
+        question: "What fraction is shaded?",
+        options: ["3/5", "5/3", "2/5", "1/5"],
+        answer: "3/5",
+        explanation: "There are 3 shaded parts out of 5 equal parts.",
+      },
+    },
+    {
+      sceneType: "comparison-board",
+      title: "Which is bigger: 1/2 or 1/4?",
+      teacherScript: "When the whole is the same size, more area means the fraction is larger.",
+      steps: [
+        { action: "showFirstFraction", narration: "Here is 1/2. One out of two equal parts is shaded.", visual: { leftLabel: "1/2", leftValue: 0.5 } },
+        { action: "showSecondFraction", narration: "Here is 1/4. One out of four equal parts is shaded.", visual: { rightLabel: "1/4", rightValue: 0.25 } },
+        { action: "compareArea", narration: "The shaded area for 1/2 is larger than the shaded area for 1/4.", visual: { comparison: "1/2 is bigger", highlightWinner: "left" } },
+      ],
+    },
+    {
+      sceneType: "quiz-visual",
+      title: "Quick visual quiz",
+      teacherScript: "Use what you watched. Count selected parts first, then total equal parts.",
+      steps: [{ action: "showQuestion", narration: "Look at the bar: 2 parts are shaded out of 6 equal parts.", visual: { parts: 6, highlightedParts: 2, question: "What fraction is shaded?" } }],
+      studentQuestion: {
+        question: "What fraction is shaded?",
+        options: ["2/6", "6/2", "2/4", "4/6"],
+        answer: "2/6",
+        explanation: "The numerator is 2 shaded parts and the denominator is 6 total equal parts.",
+      },
+    },
+  ],
   slides: [
     {
       slideType: "hook",

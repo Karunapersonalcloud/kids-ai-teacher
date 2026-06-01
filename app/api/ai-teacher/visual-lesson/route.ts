@@ -4,7 +4,7 @@ import { getChapterByNumber } from "@/lib/learning/chapter-catalog";
 import { checkAndIncrementAiUsage } from "@/lib/usage-store";
 import { getRequestAccess } from "@/lib/request-access";
 import type { PlanName } from "@/lib/billing-types";
-import type { ChildId, VisualLesson, VisualLessonSlide, VisualType } from "@/lib/types";
+import type { ChildId, VisualLesson, VisualLessonScene, VisualLessonSlide, VisualLessonStep, VisualSceneType, VisualType } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -17,6 +17,19 @@ const visualTypes: VisualType[] = [
   "example-card",
   "mistake-card",
   "summary-card",
+];
+
+const sceneTypes: VisualSceneType[] = [
+  "fraction-circle",
+  "fraction-bar",
+  "number-line",
+  "comparison-board",
+  "formula-board",
+  "table-board",
+  "force-arrows",
+  "motion-track",
+  "diagram-label",
+  "quiz-visual",
 ];
 
 export async function POST(request: Request) {
@@ -73,7 +86,29 @@ export async function POST(request: Request) {
 Shape:
 {
   "title": string,
+  "lessonTitle": string,
   "gradeLevel": string,
+  "mode": "animated-visual-teacher",
+  "scenes": [
+    {
+      "sceneType": "fraction-circle" | "fraction-bar" | "number-line" | "comparison-board" | "formula-board" | "table-board" | "force-arrows" | "motion-track" | "diagram-label" | "quiz-visual",
+      "title": string,
+      "teacherScript": string,
+      "steps": [
+        {
+          "action": string,
+          "narration": string,
+          "visual": object
+        }
+      ],
+      "studentQuestion": {
+        "question": string,
+        "options": string[],
+        "answer": string,
+        "explanation": string
+      }
+    }
+  ],
   "slides": [
     {
       "slideType": "hook" | "definition" | "visual-explanation" | "example" | "comparison" | "number-line" | "common-mistake" | "quick-check" | "summary" | "practice",
@@ -87,7 +122,7 @@ Shape:
     }
   ]
 }
-Create teacher-style slides, not paragraph notes. Every concept must include a hook, definition, visual explanation, real example, non-example, step-by-step reasoning, comparison, common mistake, quick check, summary, and practice question. Use simple English, age-appropriate examples, and CBSE/NCERT terminology for Class 9 Maths. Avoid generic lines like "this is one part of the chapter." For maths, use formulas, tables, number lines, and visual representations wherever relevant.`,
+Create animated visual teacher scenes first, with slides only as fallback. Every scene must reveal the concept through visual motion: show, split, move, highlight, point, compare, or reveal one step at a time. Keep narration short and synchronized with each step. Use simple English, age-appropriate examples, and CBSE/NCERT terminology for Class 9 Maths. Avoid generic lines like "this is one part of the chapter." For maths, use circles, bars, number lines, balance scales, graphs, formulas, or tables wherever relevant. For science, use motion tracks, arrows, particles, circuits, or labeled diagrams wherever relevant.`,
         },
         {
           role: "user",
@@ -102,7 +137,7 @@ Chapter concepts: ${concepts.join(", ")}
 Topic hints:
 ${createPromptHints(profile)}
 
-Use 8 to 12 slides. Each slide should be short enough for narration and should include visualData that can be rendered as the chosen visualType. Build the lesson for the selected concept only. Do not reuse examples from a different topic unless they genuinely explain this concept.`,
+Use 4 to 7 animated scenes. Each scene should have 3 to 6 steps. Include slides as fallback summaries, but scenes are the primary experience. Build the lesson for the selected concept only. Do not reuse examples from a different topic unless they genuinely explain this concept.`,
         },
       ],
     });
@@ -121,15 +156,62 @@ function getSessionFromCookie(cookie: string) {
 
 function normalizeVisualLesson(value: unknown, fallback: VisualLesson): VisualLesson {
   const input = Array.isArray(value) ? { title: fallback.title, gradeLevel: fallback.gradeLevel, slides: value } : asRecord(value);
+  const scenes = asArray(input.scenes)
+    .map((scene) => normalizeScene(scene))
+    .filter((scene): scene is VisualLessonScene => Boolean(scene));
   const slides = asArray(input.slides)
     .map((slide) => normalizeSlide(slide))
     .filter((slide): slide is VisualLessonSlide => Boolean(slide));
 
-  if (slides.length < 3) return fallback;
+  const nextScenes = scenes.length ? scenes : fallback.scenes || [];
+  const nextSlides = slides.length >= 3 ? slides : fallback.slides;
+  if (!nextScenes.length && nextSlides.length < 3) return fallback;
   return {
     title: asString(input.title, fallback.title),
+    lessonTitle: asString(input.lessonTitle, fallback.lessonTitle || fallback.title),
     gradeLevel: asString(input.gradeLevel, fallback.gradeLevel),
-    slides,
+    mode: asString(input.mode, fallback.mode || "animated-visual-teacher"),
+    scenes: nextScenes,
+    slides: nextSlides,
+  };
+}
+
+function normalizeScene(value: unknown): VisualLessonScene | undefined {
+  const input = asRecord(value);
+  const sceneType = sceneTypes.includes(input.sceneType as VisualSceneType) ? (input.sceneType as VisualSceneType) : undefined;
+  const title = asString(input.title);
+  const teacherScript = asString(input.teacherScript);
+  const steps = asArray(input.steps)
+    .map((step) => normalizeStep(step))
+    .filter((step): step is VisualLessonStep => Boolean(step));
+  if (!sceneType || !title || !teacherScript || !steps.length) return undefined;
+  const question = asRecord(input.studentQuestion);
+  const studentQuestion = asString(question.question)
+    ? {
+        question: asString(question.question),
+        options: asStringArray(question.options),
+        answer: asString(question.answer),
+        explanation: asString(question.explanation) || undefined,
+      }
+    : undefined;
+  return {
+    sceneType,
+    title,
+    teacherScript,
+    steps,
+    studentQuestion,
+  };
+}
+
+function normalizeStep(value: unknown): VisualLessonStep | undefined {
+  const input = asRecord(value);
+  const action = asString(input.action);
+  const narration = asString(input.narration);
+  if (!action || !narration) return undefined;
+  return {
+    action,
+    narration,
+    visual: asRecord(input.visual),
   };
 }
 
@@ -187,7 +269,10 @@ type TopicProfile = {
   practiceOptions: string[];
   practiceAnswer: string;
   practiceExplanation: string;
+  scenes: VisualLessonScene[];
 };
+
+type SceneProfile = Omit<TopicProfile, "scenes">;
 
 function createFallbackVisualLesson({
   grade,
@@ -208,7 +293,10 @@ function createFallbackVisualLesson({
 }): VisualLesson {
   return {
     title: `Chapter ${chapterNumber}: ${chapterName} - ${conceptName}`,
+    lessonTitle: `${profile.concept} Animated Lesson`,
     gradeLevel: `${grade} · ${subject} · ${board}`,
+    mode: "animated-visual-teacher",
+    scenes: profile.scenes,
     slides: buildTeacherSlides(profile),
   };
 }
@@ -361,6 +449,69 @@ function buildTopicProfile({
 }
 
 function buildMathProfile(concept: string, chapterName: string, concepts: string[], context: string, board: string): TopicProfile {
+  if (/fraction/.test(context)) {
+    return createProfile({
+      concept,
+      chapterName,
+      concepts,
+      board,
+      relatedConcept: "Whole numbers",
+      hookTitle: "How can one whole become equal parts?",
+      knownTitle: "One whole",
+      knownExamples: ["One full pizza", "One complete bar", "One full cake"],
+      focusTitle: "Selected equal parts",
+      focusExamples: ["1/4", "2/8", "3/5"],
+      definition: "A fraction shows selected equal parts of one whole. The top number counts selected parts and the bottom number counts total equal parts.",
+      rule: "selected parts / total equal parts",
+      ruleApplies: "Use a fraction when the whole is divided into equal parts.",
+      ruleDoesNotApply: "Do not use one simple fraction for unequal pieces.",
+      examplesTitle: "Fractions",
+      examples: ["1/4", "2/8", "3/5"],
+      nonExamplesTitle: "Not fair fractions",
+      nonExamples: ["Unequal pizza slices", "3 selected but no total", "A whole not divided"],
+      exampleReason: "The denominator tells total equal parts; the numerator tells selected parts.",
+      stepRows: [
+        ["1", "What is the whole?", "Start with one complete object."],
+        ["2", "Are the parts equal?", "Fractions need equal parts."],
+        ["3", "How many parts are selected?", "This becomes the numerator."],
+        ["4", "How many equal parts in all?", "This becomes the denominator."],
+      ],
+      comparisonHeaders: ["Fraction", "Selected parts", "Total equal parts", "Meaning"],
+      comparisonRows: [
+        ["1/4", "1", "4", "One part out of four"],
+        ["2/8", "2", "8", "Two parts out of eight"],
+        ["3/5", "3", "5", "Three parts out of five"],
+      ],
+      visualSlide: {
+        title: "Fractions are parts of a whole",
+        teacherScript: "Watch the whole split into equal parts. Then count selected parts on top and total equal parts below.",
+        visualType: "formula-card",
+        visualData: {
+          formula: "numerator / denominator",
+          validFor: "2/8 means 2 selected parts out of 8 equal parts.",
+          notValidFor: "Unequal parts cannot be counted as one fair fraction.",
+        },
+        keyPoints: ["Start with one whole.", "Split into equal parts.", "Count selected parts and total parts."],
+      },
+      mistake: "Counting unequal parts as if they were fair fraction parts.",
+      correction: "First check that all parts are equal, then write selected parts over total equal parts.",
+      mistakeExample: "If a pizza is cut into unequal slices, one slice is not automatically 1/4.",
+      quickQuestion: "A bar has 5 equal parts and 3 are shaded. What is the fraction?",
+      quickOptions: ["3/5", "5/3", "2/5", "3/2"],
+      quickAnswer: "3/5",
+      quickExplanation: "The selected parts are 3 and the total equal parts are 5.",
+      studentQuestion: "What does the denominator show?",
+      studentAnswer: "It shows the total number of equal parts.",
+      summaryPoints: ["Fractions show equal parts of a whole.", "Numerator means selected parts.", "Denominator means total equal parts."],
+      memoryLine: "Top is selected; bottom is total.",
+      practiceQuestion: "If 3 out of 8 equal parts are selected, what is the fraction?",
+      practiceOptions: ["3/8", "8/3", "3/5", "5/8"],
+      practiceAnswer: "3/8",
+      practiceExplanation: "Selected parts go on top, and total equal parts go below.",
+      scenes: buildFractionScenes(),
+    });
+  }
+
   if (/irrational/.test(context)) {
     return createProfile({
       concept,
@@ -424,6 +575,7 @@ function buildMathProfile(concept: string, chapterName: string, concepts: string
       practiceOptions: ["√2, √3, π", "1/2, √5, 3", "0.75, 0.333..., 2", "3, 4, 5"],
       practiceAnswer: "√2, √3, π",
       practiceExplanation: "Each number in this list cannot be written as p/q.",
+      scenes: buildIrrationalScenes(),
     });
   }
 
@@ -469,6 +621,7 @@ function buildMathProfile(concept: string, chapterName: string, concepts: string
       practiceOptions: ["x = 3", "x = 5", "x = 12", "x = 45"],
       practiceAnswer: "x = 5",
       practiceExplanation: "Divide both sides by 3, so x = 5.",
+      scenes: buildEquationScenes(concept),
     });
   }
 
@@ -550,6 +703,7 @@ function buildScienceProfile(concept: string, chapterName: string, concepts: str
     mistake: "Writing a definition without connecting it to evidence.",
     correction: "Always add what we observe and why it proves the idea.",
     mistakeExample: `For ${concept}, say what happens and how you know.`,
+    scenes: buildScienceScenes(concept, chapterName),
   });
 }
 
@@ -716,6 +870,7 @@ function createProfile({
   practiceOptions,
   practiceAnswer,
   practiceExplanation,
+  scenes,
 }: {
   concept: string;
   chapterName: string;
@@ -755,6 +910,7 @@ function createProfile({
   practiceOptions?: string[];
   practiceAnswer?: string;
   practiceExplanation?: string;
+  scenes?: VisualLessonScene[];
 }): TopicProfile {
   const safeKnownExamples = knownExamples.length ? knownExamples : [`A known idea from ${chapterName}`, "A familiar example", "A related concept"];
   const safeComparisonRows = comparisonRows || [
@@ -767,7 +923,7 @@ function createProfile({
   const safePracticeOptions = practiceOptions || [examples[0] || concept, nonExamples[0] || relatedConcept, "Only memorize the term", "Skip the reason"];
   const safePracticeAnswer = practiceAnswer || safePracticeOptions[0];
 
-  return {
+  const profileWithoutScenes = {
     concept,
     relatedConcept,
     hookTitle,
@@ -804,6 +960,267 @@ function createProfile({
     practiceAnswer: safePracticeAnswer,
     practiceExplanation: practiceExplanation || `${safePracticeAnswer} follows the definition and the rule for ${concept}.`,
   };
+
+  return {
+    ...profileWithoutScenes,
+    scenes: scenes?.length ? scenes : buildDefaultScenes(profileWithoutScenes),
+  };
+}
+
+function buildFractionScenes(): VisualLessonScene[] {
+  return [
+    {
+      sceneType: "fraction-circle",
+      title: "What does one part of a whole look like?",
+      teacherScript: "Imagine this circle is a pizza. First we see one whole, then we divide it into equal parts.",
+      steps: [
+        { action: "showWhole", narration: "This is one whole pizza.", visual: { shape: "circle", label: "1 whole", parts: 1, highlightedParts: 0 } },
+        { action: "divideEqualParts", narration: "Now we divide the whole into 4 equal parts.", visual: { parts: 4, label: "4 equal parts" } },
+        { action: "highlightParts", narration: "If we select 1 part, we say 1 out of 4 parts.", visual: { highlightedParts: 1, totalParts: 4 } },
+        {
+          action: "showFraction",
+          narration: "So the fraction is 1 over 4.",
+          visual: { fraction: "1/4", numeratorLabel: "selected part", denominatorLabel: "total equal parts" },
+        },
+      ],
+    },
+    {
+      sceneType: "fraction-circle",
+      title: "Two selected parts out of eight",
+      teacherScript: "The same whole can be divided into more equal parts. The fraction changes based on selected parts and total parts.",
+      steps: [
+        { action: "showWhole", narration: "Start with the same one whole.", visual: { shape: "circle", label: "1 whole", parts: 1, highlightedParts: 0 } },
+        { action: "divideEqualParts", narration: "Now divide it into 8 equal parts.", visual: { parts: 8, label: "8 equal parts" } },
+        { action: "highlightParts", narration: "Highlight 2 parts. We count 2 selected parts.", visual: { highlightedParts: 2, totalParts: 8 } },
+        {
+          action: "showFraction",
+          narration: "The fraction is 2 over 8. The top number is selected parts, and the bottom number is total equal parts.",
+          visual: { fraction: "2/8", numeratorLabel: "2 selected parts", denominatorLabel: "8 total equal parts" },
+        },
+      ],
+      studentQuestion: {
+        question: "If 3 parts are selected out of 8, what is the fraction?",
+        options: ["3/8", "8/3", "3/5", "5/8"],
+        answer: "3/8",
+        explanation: "Selected parts go on top and total equal parts go below.",
+      },
+    },
+    {
+      sceneType: "fraction-bar",
+      title: "Fractions can be shown with bars too",
+      teacherScript: "A fraction does not have to be a circle. A bar can also show equal parts of a whole.",
+      steps: [
+        { action: "showWholeBar", narration: "This full bar is one whole.", visual: { parts: 1, highlightedParts: 0, label: "1 whole bar" } },
+        { action: "splitBar", narration: "Split the bar into 5 equal parts.", visual: { parts: 5, label: "5 equal parts" } },
+        { action: "highlightBarParts", narration: "Highlight 3 parts out of 5.", visual: { highlightedParts: 3, totalParts: 5 } },
+        { action: "showFraction", narration: "The shaded fraction is 3 over 5.", visual: { fraction: "3/5", numeratorLabel: "3 shaded", denominatorLabel: "5 total" } },
+      ],
+      studentQuestion: {
+        question: "What fraction is shaded?",
+        options: ["3/5", "5/3", "2/5", "1/5"],
+        answer: "3/5",
+        explanation: "There are 3 shaded parts out of 5 equal parts.",
+      },
+    },
+    {
+      sceneType: "comparison-board",
+      title: "Which is bigger: 1/2 or 1/4?",
+      teacherScript: "When the whole is the same size, more area means the fraction is larger.",
+      steps: [
+        { action: "showFirstFraction", narration: "Here is 1/2. One out of two equal parts is shaded.", visual: { leftLabel: "1/2", leftValue: 0.5 } },
+        { action: "showSecondFraction", narration: "Here is 1/4. One out of four equal parts is shaded.", visual: { rightLabel: "1/4", rightValue: 0.25 } },
+        { action: "compareArea", narration: "The shaded area for 1/2 is larger than the shaded area for 1/4.", visual: { comparison: "1/2 is bigger", highlightWinner: "left" } },
+      ],
+    },
+    {
+      sceneType: "quiz-visual",
+      title: "Quick visual quiz",
+      teacherScript: "Use what you watched. Count selected parts first, then total equal parts.",
+      steps: [
+        { action: "showQuestion", narration: "Look at the bar: 2 parts are shaded out of 6 equal parts.", visual: { parts: 6, highlightedParts: 2, question: "What fraction is shaded?" } },
+      ],
+      studentQuestion: {
+        question: "What fraction is shaded?",
+        options: ["2/6", "6/2", "2/4", "4/6"],
+        answer: "2/6",
+        explanation: "The numerator is 2 shaded parts and the denominator is 6 total equal parts.",
+      },
+    },
+  ];
+}
+
+function buildIrrationalScenes(): VisualLessonScene[] {
+  return [
+    {
+      sceneType: "comparison-board",
+      title: "Can every number fit p/q?",
+      teacherScript: "Some numbers can be written as p over q. Some real numbers cannot fit that fraction form.",
+      steps: [
+        { action: "showRationalSide", narration: "Numbers like 1/2, 3, and 0.75 can be written as p/q.", visual: { leftLabel: "Fits p/q", leftItems: ["1/2", "3", "0.75"], leftValue: 0.65 } },
+        { action: "showIrrationalSide", narration: "Numbers like √2, √3, and pi cannot be written as p/q.", visual: { rightLabel: "Does not fit p/q", rightItems: ["√2", "√3", "π"], rightValue: 0.95 } },
+        { action: "highlightDifference", narration: "This difference gives us rational and irrational numbers.", visual: { comparison: "p/q test", highlightWinner: "right" } },
+      ],
+    },
+    {
+      sceneType: "number-line",
+      title: "Place √2 on the number line",
+      teacherScript: "Irrational numbers still live on the number line. √2 is about 1.414, between 1 and 2.",
+      steps: [
+        { action: "showLine", narration: "Start with the number line from 0 to 3.", visual: { min: 0, max: 3, markers: [{ label: "1", value: 1 }, { label: "2", value: 2 }] } },
+        { action: "moveMarker", narration: "Move to about 1.414.", visual: { markers: [{ label: "√2 ≈ 1.414", value: 1.414 }] } },
+        { action: "labelMarker", narration: "That point is √2. It is real, but it is not rational.", visual: { fraction: "√2", label: "irrational number" } },
+      ],
+    },
+    {
+      sceneType: "table-board",
+      title: "Decimal clue",
+      teacherScript: "Decimals help us test the idea. Rational decimals terminate or repeat. Irrational decimals never end and never repeat.",
+      steps: [
+        { action: "showTerminating", narration: "0.5 ends, so 1/2 is rational.", visual: { headers: ["Number", "Decimal", "Type"], rows: [["1/2", "0.5", "Rational"]] } },
+        { action: "showRepeating", narration: "0.333... repeats, so 1/3 is rational.", visual: { rows: [["1/3", "0.333...", "Rational"]] } },
+        { action: "showNonRepeating", narration: "1.414213... does not end or repeat, so √2 is irrational.", visual: { rows: [["√2", "1.414213...", "Irrational"]] } },
+      ],
+    },
+    {
+      sceneType: "quiz-visual",
+      title: "Quick check",
+      teacherScript: "Now use the p/q and decimal tests.",
+      steps: [{ action: "showQuestion", narration: "Which number is irrational?", visual: { question: "Which number is irrational?" } }],
+      studentQuestion: {
+        question: "Which one is irrational?",
+        options: ["3/4", "0.25", "√5", "2"],
+        answer: "√5",
+        explanation: "√5 cannot be written as p/q and its decimal does not terminate or repeat.",
+      },
+    },
+  ];
+}
+
+function buildEquationScenes(concept: string): VisualLessonScene[] {
+  return [
+    {
+      sceneType: "formula-board",
+      title: "Keep the equation balanced",
+      teacherScript: "An equation works like a balance. Whatever we do to one side, we do to the other side.",
+      steps: [
+        { action: "writeEquation", narration: "Start with 2x + 3 = 11.", visual: { lines: ["2x + 3 = 11"], formula: "2x + 3 = 11" } },
+        { action: "subtractBothSides", narration: "Subtract 3 from both sides.", visual: { lines: ["2x + 3 - 3 = 11 - 3", "2x = 8"], formula: "2x = 8" } },
+        { action: "divideBothSides", narration: "Divide both sides by 2.", visual: { lines: ["2x / 2 = 8 / 2", "x = 4"], formula: "x = 4" } },
+      ],
+    },
+    {
+      sceneType: "comparison-board",
+      title: `${concept} vs expression`,
+      teacherScript: "An equation has an equals sign and can be solved. An expression does not have two balanced sides.",
+      steps: [
+        { action: "showExpression", narration: "2x + 3 is an expression.", visual: { leftLabel: "Expression", leftItems: ["2x + 3"], leftValue: 0.45 } },
+        { action: "showEquation", narration: "2x + 3 = 11 is an equation.", visual: { rightLabel: "Equation", rightItems: ["2x + 3 = 11"], rightValue: 0.9 } },
+      ],
+    },
+  ];
+}
+
+function buildScienceScenes(concept: string, chapterName: string): VisualLessonScene[] {
+  const context = `${concept} ${chapterName}`.toLowerCase();
+  if (/inertia|motion/.test(context)) {
+    return [
+      {
+        sceneType: "motion-track",
+        title: `${concept} on a motion track`,
+        teacherScript: "Watch the object. Motion ideas become easier when we see position changing over time.",
+        steps: [
+          { action: "showObject", narration: "The object starts at rest.", visual: { position: 10, label: "rest" } },
+          { action: "moveObject", narration: "When a push acts, the object changes its motion.", visual: { position: 65, label: "moving" } },
+          { action: "showInertia", narration: "Inertia is the tendency to keep the same state of motion unless a force changes it.", visual: { position: 65, label: "keeps moving", trail: true } },
+        ],
+      },
+      {
+        sceneType: "force-arrows",
+        title: "Forces as arrows",
+        teacherScript: "A force has direction. Arrows help us see which way the push or pull acts.",
+        steps: [
+          { action: "showObject", narration: "First locate the object.", visual: { objectLabel: concept } },
+          { action: "addArrow", narration: "Add an arrow in the direction of force.", visual: { rightArrow: true, forceLabel: "push" } },
+          { action: "showResult", narration: "The object changes motion in the direction of the net force.", visual: { rightArrow: true, netForce: "to the right" } },
+        ],
+      },
+    ];
+  }
+
+  if (/electric|circuit/.test(context)) {
+    return [
+      {
+        sceneType: "diagram-label",
+        title: "Follow the circuit path",
+        teacherScript: "Electricity is easier when we trace the path like a loop.",
+        steps: [
+          { action: "showDiagram", narration: "Start with the battery.", visual: { diagram: "circuit", labels: ["Battery"] } },
+          { action: "addWire", narration: "Current needs a closed path through wires.", visual: { labels: ["Battery", "Wire", "Switch"] } },
+          { action: "lightBulb", narration: "When the path is closed, the bulb can glow.", visual: { labels: ["Battery", "Wire", "Switch", "Bulb"], active: true } },
+        ],
+      },
+    ];
+  }
+
+  return [
+    {
+      sceneType: "diagram-label",
+      title: `Build a diagram for ${concept}`,
+      teacherScript: "Science ideas become clear when we label the parts and connect cause to effect.",
+      steps: [
+        { action: "showDiagram", narration: `First place ${concept} in the center.`, visual: { diagram: "concept", labels: [concept] } },
+        { action: "addCause", narration: "Now add the cause or condition.", visual: { labels: ["Cause", concept] } },
+        { action: "addEffect", narration: "Finally add the effect or evidence.", visual: { labels: ["Cause", concept, "Effect", "Evidence"] } },
+      ],
+    },
+    {
+      sceneType: "table-board",
+      title: "Observation and evidence",
+      teacherScript: "A science answer should connect observation, cause, and evidence.",
+      steps: [
+        { action: "showObservation", narration: "Write what we observe.", visual: { headers: ["Observation", "Cause", "Evidence"], rows: [["What we see", "", ""]] } },
+        { action: "showCause", narration: `Connect the observation to ${concept}.`, visual: { rows: [["What we see", concept, ""]] } },
+        { action: "showEvidence", narration: "Add evidence so the answer is scientific.", visual: { rows: [["What we see", concept, "Measured or visible proof"]] } },
+      ],
+    },
+  ];
+}
+
+function buildDefaultScenes(profile: SceneProfile): VisualLessonScene[] {
+  return [
+    {
+      sceneType: profile.visualSlide.visualType === "comparison-table" ? "table-board" : "formula-board",
+      title: `Watch ${profile.concept} appear step by step`,
+      teacherScript: profile.definition,
+      steps: [
+        { action: "writeMeaning", narration: `First, write the meaning of ${profile.concept}.`, visual: { lines: [profile.definition], formula: profile.rule } },
+        { action: "showExample", narration: `Now show one example: ${profile.examples[0] || profile.concept}.`, visual: { lines: [profile.examples[0] || profile.concept], formula: profile.ruleApplies } },
+        { action: "showNonExample", narration: `Compare it with a non-example: ${profile.nonExamples[0] || profile.relatedConcept}.`, visual: { lines: [profile.nonExamples[0] || profile.relatedConcept], formula: profile.ruleDoesNotApply } },
+      ],
+    },
+    {
+      sceneType: "comparison-board",
+      title: `${profile.concept} compared visually`,
+      teacherScript: `Place ${profile.concept} beside ${profile.relatedConcept} so the difference is visible.`,
+      steps: [
+        { action: "showLeft", narration: `Left side: ${profile.concept}.`, visual: { leftLabel: profile.concept, leftItems: profile.examples.slice(0, 3), leftValue: 0.8 } },
+        { action: "showRight", narration: `Right side: ${profile.relatedConcept}.`, visual: { rightLabel: profile.relatedConcept, rightItems: profile.nonExamples.slice(0, 3), rightValue: 0.45 } },
+        { action: "showReason", narration: profile.exampleReason, visual: { comparison: profile.exampleReason } },
+      ],
+    },
+    {
+      sceneType: "quiz-visual",
+      title: "Try one question",
+      teacherScript: "Use the visual rule, not guessing.",
+      steps: [{ action: "showQuestion", narration: profile.quickQuestion, visual: { question: profile.quickQuestion } }],
+      studentQuestion: {
+        question: profile.quickQuestion,
+        options: profile.quickOptions,
+        answer: profile.quickAnswer,
+        explanation: profile.quickExplanation,
+      },
+    },
+  ];
 }
 
 function createPromptHints(profile: TopicProfile) {
@@ -813,7 +1230,7 @@ function createPromptHints(profile: TopicProfile) {
     `- Useful examples: ${profile.examples.join(", ")}`,
     `- Useful non-examples: ${profile.nonExamples.join(", ")}`,
     `- Related comparison: ${profile.concept} vs ${profile.relatedConcept}`,
-    `- Suggested visual: ${profile.visualSlide.visualType} (${profile.visualSlide.title})`,
+    `- Suggested animated scenes: ${profile.scenes.map((scene) => `${scene.sceneType}: ${scene.title}`).join("; ")}`,
     `- Common mistake to address: ${profile.mistake}`,
     `- Quick check style: ${profile.quickQuestion}`,
   ].join("\n");

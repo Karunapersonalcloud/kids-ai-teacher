@@ -119,9 +119,45 @@ export type VisualLessonSlide = {
   answer?: string;
 };
 
+export type VisualSceneType =
+  | "fraction-circle"
+  | "fraction-bar"
+  | "number-line"
+  | "comparison-board"
+  | "formula-board"
+  | "table-board"
+  | "force-arrows"
+  | "motion-track"
+  | "diagram-label"
+  | "quiz-visual";
+
+export type VisualLessonStep = {
+  action: string;
+  narration: string;
+  visual: Record<string, unknown>;
+};
+
+export type VisualLessonStudentQuestion = {
+  question: string;
+  options: string[];
+  answer: string;
+  explanation?: string;
+};
+
+export type VisualLessonScene = {
+  sceneType: VisualSceneType;
+  title: string;
+  teacherScript: string;
+  steps: VisualLessonStep[];
+  studentQuestion?: VisualLessonStudentQuestion;
+};
+
 export type VisualLesson = {
   title: string;
+  lessonTitle?: string;
   gradeLevel: string;
+  mode?: "animated-visual-teacher" | string;
+  scenes?: VisualLessonScene[];
   slides: VisualLessonSlide[];
   simpleExplanation?: string;
   visualSteps?: { title: string; icon: string; description: string }[];

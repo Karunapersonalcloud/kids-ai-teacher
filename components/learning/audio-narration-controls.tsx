@@ -16,12 +16,14 @@ export function AudioNarrationControls({
   text,
   language = "en-IN",
   autoPlay = false,
+  buttonLabel = "Read this slide",
   onStart,
   onStop,
 }: {
   text: string;
   language?: string;
   autoPlay?: boolean;
+  buttonLabel?: string;
   onStart?: () => void;
   onStop?: () => void;
 }) {
@@ -96,7 +98,7 @@ export function AudioNarrationControls({
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-purple-100">
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={speak} className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-3 py-2 text-sm font-black text-white">
-          <Volume2 className="h-4 w-4" /> Read this slide
+          <Volume2 className="h-4 w-4" /> {buttonLabel}
         </button>
         <button onClick={speaking ? pause : resume} className="rounded-xl bg-slate-100 p-2 text-slate-700" aria-label={speaking ? "Pause narration" : "Resume narration"}>
           {speaking ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
