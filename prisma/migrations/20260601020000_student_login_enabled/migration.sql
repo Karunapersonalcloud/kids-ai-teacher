@@ -1,0 +1,2 @@
+ALTER TABLE "Child"
+ADD COLUMN IF NOT EXISTS "studentLoginEnabled" BOOLEAN NOT NULL DEFAULT true;
