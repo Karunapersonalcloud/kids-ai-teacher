@@ -71,8 +71,8 @@ model Child {
   learningGoal                 String?
   // Student login fields
   studentLoginId               String?  @unique
-  studentCredentialHash        String?
-  mustChangeStudentPassword    Boolean  @default(false)
+  studentPasswordHash          String?
+  mustChangeStudentPassword    Boolean  @default(true)
   studentLoginEnabled          Boolean  @default(true)
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt

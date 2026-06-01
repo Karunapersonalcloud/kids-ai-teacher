@@ -7,6 +7,7 @@ import { BrandLogo } from "@/components/shared/brand-logo";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [loginType, setLoginType] = useState<"parent" | "student">("parent");
   const [identifier, setIdentifier] = useState("");
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState("");
@@ -17,14 +18,37 @@ export default function LoginPage() {
   });
 
   async function login(adminDemo = false) {
+    setMessage("");
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifier, pin, adminDemo }),
+      body: JSON.stringify({ identifier, pin, adminDemo, loginType }),
     });
-    const data = (await response.json()) as { user?: { status: string; role: string; mustChangeCredentials?: boolean }; error?: string };
-    if (!response.ok || !data.user) {
+    const data = (await response.json()) as {
+      user?: { status: string; role: string; mustChangeCredentials?: boolean };
+      student?: { mustChangeStudentPassword?: boolean };
+      loginType?: "parent" | "student";
+      error?: string;
+    };
+    if (!response.ok) {
       setMessage(data.error || "Login failed.");
+      return;
+    }
+    if (data.loginType === "student") {
+      if (!data.student) {
+        setMessage("Student login failed.");
+        return;
+      }
+      if (data.student.mustChangeStudentPassword) {
+        router.push("/student/change-password");
+      } else {
+        router.push("/student/dashboard");
+      }
+      return;
+    }
+
+    if (!data.user) {
+      setMessage("Login failed.");
       return;
     }
     if (data.user.status === "pending") router.push("/pending-approval");
@@ -44,8 +68,8 @@ export default function LoginPage() {
           </Link>
           <Link href="/" className="text-sm font-black text-purple-700">Back</Link>
         </div>
-        <h1 className="mt-4 text-3xl font-black text-purple-800">Parent Login</h1>
-        <p className="mt-2 text-sm font-semibold text-slate-500">Admin and approved parents can login using their registered email/mobile and PIN.</p>
+        <h1 className="mt-4 text-3xl font-black text-purple-800">Login</h1>
+        <p className="mt-2 text-sm font-semibold text-slate-500">Parents and students can login with their assigned credentials.</p>
         <p className="mt-3 rounded-2xl bg-purple-50 px-4 py-3 text-sm font-bold leading-6 text-purple-800">
           Forgot your PIN or waiting for approval? Contact support@conceptkid.in.
         </p>
@@ -58,9 +82,29 @@ export default function LoginPage() {
             <button onClick={() => login(true)} className="mt-3 w-full rounded-xl bg-amber-100 px-5 py-3 font-black text-amber-800">Use Local Family Admin</button>
           </div>
         )}
-        <div className="mt-5 rounded-2xl bg-purple-50 p-4">
-          <div className="font-black text-purple-800">Email / Mobile Login</div>
-          <input value={identifier} onChange={(event) => setIdentifier(event.target.value)} className="mt-3 w-full rounded-xl border border-purple-100 px-4 py-3 font-bold" placeholder="Email or mobile" />
+        <div className="mt-5 flex gap-2 rounded-2xl bg-purple-50 p-2">
+          <button
+            onClick={() => setLoginType("parent")}
+            className={`flex-1 rounded-xl px-4 py-2 text-sm font-black ${loginType === "parent" ? "bg-purple-600 text-white" : "bg-white text-purple-700"}`}
+          >
+            Parent Login
+          </button>
+          <button
+            onClick={() => setLoginType("student")}
+            className={`flex-1 rounded-xl px-4 py-2 text-sm font-black ${loginType === "student" ? "bg-purple-600 text-white" : "bg-white text-purple-700"}`}
+          >
+            Student Login
+          </button>
+        </div>
+
+        <div className="mt-4 rounded-2xl bg-purple-50 p-4">
+          <div className="font-black text-purple-800">{loginType === "parent" ? "Email / Mobile Login" : "Student ID Login"}</div>
+          <input
+            value={identifier}
+            onChange={(event) => setIdentifier(event.target.value)}
+            className="mt-3 w-full rounded-xl border border-purple-100 px-4 py-3 font-bold"
+            placeholder={loginType === "parent" ? "Email or mobile" : "Student ID"}
+          />
           <input value={pin} onChange={(event) => setPin(event.target.value)} type="password" className="mt-3 w-full rounded-xl border border-purple-100 px-4 py-3 font-bold" placeholder="PIN/password" />
         </div>
         {message && <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{message}</div>}
