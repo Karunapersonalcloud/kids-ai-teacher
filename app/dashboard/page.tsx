@@ -22,6 +22,10 @@ export default async function DashboardPage() {
     const userId = getSessionUserIdFromCookie(cookieHeader);
     const access = userId ? await findAccessById(userId) : undefined;
 
+    if (access?.mustChangeCredentials) {
+      redirect("/change-credentials");
+    }
+
     // Mastery-flow gate: if any child of this approved parent has no DiagnosticResult,
     // send the parent to the diagnostic onboarding before the dashboard.
     if (access && isPostgresEnabled()) {

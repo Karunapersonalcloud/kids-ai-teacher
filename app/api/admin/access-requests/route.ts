@@ -1,5 +1,5 @@
 import { getLimitsForPlan } from "@/lib/access-control";
-import { generateTemporaryPin, readAccessRequests, updateAccessRequest } from "@/lib/access-store";
+import { generateTemporaryPin, normalizeLoginIdentifier, readAccessRequests, type AccessRequest, updateAccessRequest } from "@/lib/access-store";
 import { hashPin } from "@/lib/credentials";
 import { sendApprovalEmail } from "@/lib/email/email-provider";
 import { buildLoginInstructions } from "@/lib/email/templates";
@@ -21,10 +21,11 @@ export async function PATCH(request: Request) {
     return Response.json({ error: "id and action are required." }, { status: 400 });
   }
 
+  const requests = await readAccessRequests();
+  const current = requests.find((item) => item.id === body.id);
+  if (!current) return Response.json({ error: "Request not found." }, { status: 404 });
+
   if (body.action === "mark-upload-required" || body.action === "trigger-ncert-download") {
-    const requests = await readAccessRequests();
-    const current = requests.find((item) => item.id === body.id);
-    if (!current) return Response.json({ error: "Request not found." }, { status: 404 });
     const subjects = normalizeSubmittedSubjects(current.submittedSubjects);
     const nextSubjects = body.action === "mark-upload-required" ? markUploadRequired(subjects) : markNcertForDownload(subjects);
     const updated = await updateAccessRequest(body.id, {
@@ -37,9 +38,22 @@ export async function PATCH(request: Request) {
     return Response.json({ request: updated });
   }
 
-  const patch = patchForAction(body.action, body);
+  const patch = patchForAction(current, body.action, body);
   const updated = await updateAccessRequest(body.id, patch);
   if (!updated) return Response.json({ error: "Request not found." }, { status: 404 });
+
+  if (process.env.NODE_ENV !== "production" && (body.action === "approve-trial" || body.action === "approve-full" || body.action === "reset-pin")) {
+    console.info("[auth][admin-approval] Action applied", {
+      action: body.action,
+      requestId: updated.id,
+      status: updated.status,
+      plan: updated.plan,
+      mustChangeCredentials: updated.mustChangeCredentials,
+      hasTempPin: Boolean(updated.tempPin),
+      hasCredentialHash: Boolean(updated.credentialHash),
+      loginIdentifier: updated.loginIdentifier,
+    });
+  }
 
   if (body.action === "approve-trial" || body.action === "approve-full") {
     const emailResult = await sendApprovalEmail(updated);
@@ -94,26 +108,32 @@ async function isAdmin(request: Request) {
   return access.role === "admin" && access.userType === "internalFamily" && access.status === "active";
 }
 
-function patchForAction(action: string, body: { notes?: string; expiryDate?: string; dailyAiLimit?: number }) {
-  if (action === "approve-trial") return withPlan("trial", approvedPatch({ status: "trial" as const, expiryDate: body.expiryDate || plusDays(14), notes: body.notes || "Approved for trial." }));
-  if (action === "approve-full") return withPlan("basic", approvedPatch({ status: "active" as const, expiryDate: body.expiryDate, notes: body.notes || "Approved for full access." }));
+function patchForAction(current: AccessRequest, action: string, body: { notes?: string; expiryDate?: string; dailyAiLimit?: number }) {
+  if (action === "approve-trial") {
+    return withPlan("trial", approvedPatch(current, { status: "trial" as const, expiryDate: body.expiryDate || plusDays(14), notes: body.notes || "Approved for trial." }));
+  }
+  if (action === "approve-full") {
+    return withPlan("basic", approvedPatch(current, { status: "active" as const, expiryDate: body.expiryDate, notes: body.notes || "Approved for full access." }));
+  }
   if (action === "reject") return { status: "rejected" as const, notes: body.notes || "Rejected by admin." };
   if (action === "block") return { status: "blocked" as const, notes: body.notes || "Blocked by admin." };
   if (action === "extend") return { expiryDate: body.expiryDate || plusDays(30), notes: body.notes || "Access extended." };
   if (action === "set-limit") return { dailyAiLimit: body.dailyAiLimit || 20, notes: body.notes || "Daily AI limit updated." };
-  if (action === "reset-pin") return approvedPatch({ notes: body.notes || "Temporary PIN reset by admin." });
+  if (action === "reset-pin") return approvedPatch(current, { notes: body.notes || "Temporary PIN reset by admin." }, { forceNewPin: true });
   return {};
 }
 
-function approvedPatch(patch: Record<string, unknown>) {
-  const tempPin = generateTemporaryPin();
+function approvedPatch(current: AccessRequest, patch: Record<string, unknown>, options?: { forceNewPin?: boolean }) {
+  const reuseExistingTempPin = !options?.forceNewPin && Boolean(current.mustChangeCredentials && current.tempPin && current.credentialHash);
+  const tempPin = reuseExistingTempPin ? current.tempPin! : generateTemporaryPin();
   const now = new Date().toISOString();
   return {
     ...patch,
     // tempPin is shown once to the admin for hand-off; credentialHash stores
     // the hashed value so login does not compare plain text.
     tempPin,
-    credentialHash: hashPin(tempPin),
+    credentialHash: reuseExistingTempPin ? current.credentialHash : hashPin(tempPin),
+    loginIdentifier: normalizeLoginIdentifier(current.email || current.mobile),
     mustChangeCredentials: true,
     tempCredentialsIssuedAt: now,
     approvedAt: now,

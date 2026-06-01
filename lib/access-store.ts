@@ -125,6 +125,20 @@ const seedRequests: AccessRequest[] = [
   },
 ];
 
+export function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+export function normalizeMobile(value: string) {
+  return value.trim().replace(/[\s()-]/g, "");
+}
+
+export function normalizeLoginIdentifier(identifier: string) {
+  const trimmed = identifier.trim();
+  if (!trimmed) return "";
+  return trimmed.includes("@") ? normalizeEmail(trimmed) : normalizeMobile(trimmed);
+}
+
 export async function readAccessRequests(): Promise<AccessRequest[]> {
   if (isPostgresEnabled()) {
     await ensurePostgresFamilyAdmin();
@@ -188,79 +202,74 @@ export async function createAccessRequest(
     | "learningGoal"
   >
 ) {
+  const normalizedEmail = normalizeEmail(input.email);
+  const normalizedMobile = normalizeMobile(input.mobile);
+  const loginIdentifier = normalizeLoginIdentifier(input.email || input.mobile);
+
   if (isPostgresEnabled()) {
     const now = new Date();
-    const record = await prisma.accessRequest.upsert({
-      where: { email: input.email },
-      update: {
-        parentName: input.parentName,
-        mobile: input.mobile,
-        state: input.state,
-        city: input.city,
-        preferredLanguage: input.preferredLanguage,
-        childName: input.childName,
-        grade: input.grade,
-        board: input.board,
-        preferredExplanationLanguage: input.explanationLanguage,
-        r1Language: input.r1Language,
-        r2Language: input.r2Language,
-        r3Language: input.r3Language,
-        regionalLanguage: input.regionalLanguage,
-        selectedLanguages: input.selectedLanguages,
-        submittedSubjects: parseJson(input.submittedSubjects),
-        submittedChildren: parseJson(input.submittedChildren),
-        cbseLanguageRuleWarning: input.cbseLanguageRuleWarning,
-        cbseLanguageValidationStatus: input.cbseLanguageValidationStatus,
-        weakSubjects: input.weakSubjects,
-        learningGoal: input.learningGoal,
-        status: "pending",
-        plan: "demo",
-        loginIdentifier: input.email,
-        mustChangeCredentials: false,
-        updatedAt: now,
-      },
-      create: {
-        parentName: input.parentName,
-        email: input.email,
-        mobile: input.mobile,
-        state: input.state,
-        city: input.city,
-        preferredLanguage: input.preferredLanguage,
-        childName: input.childName,
-        grade: input.grade,
-        board: input.board,
-        preferredExplanationLanguage: input.explanationLanguage,
-        r1Language: input.r1Language,
-        r2Language: input.r2Language,
-        r3Language: input.r3Language,
-        regionalLanguage: input.regionalLanguage,
-        selectedLanguages: input.selectedLanguages,
-        submittedSubjects: parseJson(input.submittedSubjects),
-        submittedChildren: parseJson(input.submittedChildren),
-        cbseLanguageRuleWarning: input.cbseLanguageRuleWarning,
-        cbseLanguageValidationStatus: input.cbseLanguageValidationStatus,
-        weakSubjects: input.weakSubjects,
-        learningGoal: input.learningGoal,
-        status: "pending",
-        role: "parent",
-        userType: "externalUser",
-        plan: "demo",
-        loginIdentifier: input.email,
-        mustChangeCredentials: false,
-      },
+    const existing = await prisma.accessRequest.findFirst({
+      where: { email: { equals: normalizedEmail, mode: "insensitive" } },
+      orderBy: { updatedAt: "desc" },
     });
+
+    const baseData = {
+      parentName: input.parentName,
+      email: normalizedEmail,
+      mobile: normalizedMobile,
+      state: input.state,
+      city: input.city,
+      preferredLanguage: input.preferredLanguage,
+      childName: input.childName,
+      grade: input.grade,
+      board: input.board,
+      preferredExplanationLanguage: input.explanationLanguage,
+      r1Language: input.r1Language,
+      r2Language: input.r2Language,
+      r3Language: input.r3Language,
+      regionalLanguage: input.regionalLanguage,
+      selectedLanguages: input.selectedLanguages,
+      submittedSubjects: parseJson(input.submittedSubjects),
+      submittedChildren: parseJson(input.submittedChildren),
+      cbseLanguageRuleWarning: input.cbseLanguageRuleWarning,
+      cbseLanguageValidationStatus: input.cbseLanguageValidationStatus,
+      weakSubjects: input.weakSubjects,
+      learningGoal: input.learningGoal,
+      status: "pending" as const,
+      plan: "demo" as const,
+      loginIdentifier,
+      mustChangeCredentials: false,
+    };
+
+    const record = existing
+      ? await prisma.accessRequest.update({
+          where: { id: existing.id },
+          data: {
+            ...baseData,
+            updatedAt: now,
+          },
+        })
+      : await prisma.accessRequest.create({
+          data: {
+            ...baseData,
+            role: "parent",
+            userType: "externalUser",
+          },
+        });
     return accessFromRequest(record);
   }
 
   const now = new Date().toISOString();
   const record: AccessRequest = {
     ...input,
+    email: normalizedEmail,
+    mobile: normalizedMobile,
     id: randomUUID(),
     status: "pending",
     role: "parent",
     userType: "externalUser",
     plan: "demo",
-    loginIdentifier: input.email,
+    loginIdentifier,
     mustChangeCredentials: false,
     canDownloadMaterials: false,
     canUploadMaterials: false,
@@ -279,7 +288,7 @@ export async function createAccessRequest(
     updatedAt: now,
   };
   const requests = await readAccessRequests();
-  await writeAccessRequests([record, ...requests.filter((request) => request.email.toLowerCase() !== record.email.toLowerCase())]);
+  await writeAccessRequests([record, ...requests.filter((request) => normalizeEmail(request.email) !== record.email)]);
   return record;
 }
 
@@ -342,47 +351,59 @@ export async function findAccessById(id: string) {
 }
 
 export async function findAccessByEmail(email: string) {
+  const normalizedEmail = normalizeEmail(email);
   if (isPostgresEnabled()) {
     await ensurePostgresFamilyAdmin();
-    const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
+    const user = await prisma.user.findFirst({ where: { email: { equals: normalizedEmail, mode: "insensitive" } } });
     if (user) return accessFromUser(user);
-    const request = await prisma.accessRequest.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
+    const request = await prisma.accessRequest.findFirst({ where: { email: { equals: normalizedEmail, mode: "insensitive" } } });
     return request ? accessFromRequest(request) : undefined;
   }
 
   const requests = await readAccessRequests();
-  return requests.find((request) => request.email.toLowerCase() === email.toLowerCase());
+  return requests.find((request) => request.email.toLowerCase() === normalizedEmail);
 }
 
 export async function findAccessByIdentifier(identifier: string) {
+  const normalized = normalizeLoginIdentifier(identifier);
+  const normalizedEmail = normalizeEmail(identifier);
+  const normalizedMobile = normalizeMobile(identifier);
+
   if (isPostgresEnabled()) {
     await ensurePostgresFamilyAdmin();
-    const normalized = identifier.toLowerCase();
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: { equals: normalized, mode: "insensitive" } },
-          { mobile: identifier },
-          { loginIdentifier: { equals: normalized, mode: "insensitive" } },
-        ],
-      },
-    });
-    if (user) return accessFromUser(user);
     const request = await prisma.accessRequest.findFirst({
       where: {
         OR: [
-          { email: { equals: normalized, mode: "insensitive" } },
-          { mobile: identifier },
+          { email: { equals: normalizedEmail, mode: "insensitive" } },
+          { mobile: normalizedMobile },
           { loginIdentifier: { equals: normalized, mode: "insensitive" } },
         ],
       },
+      orderBy: { updatedAt: "desc" },
     });
-    return request ? accessFromRequest(request) : undefined;
+    if (request) return accessFromRequest(request);
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: { equals: normalizedEmail, mode: "insensitive" } },
+          { mobile: normalizedMobile },
+          { loginIdentifier: { equals: normalized, mode: "insensitive" } },
+        ],
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+    return user ? accessFromUser(user) : undefined;
   }
 
-  const normalized = identifier.toLowerCase();
   const requests = await readAccessRequests();
-  return requests.find((request) => request.email.toLowerCase() === normalized || request.mobile === identifier || request.loginIdentifier.toLowerCase() === normalized);
+  const sorted = [...requests].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+  return sorted.find(
+    (request) =>
+      normalizeEmail(request.email) === normalizedEmail ||
+      normalizeMobile(request.mobile) === normalizedMobile ||
+      normalizeLoginIdentifier(request.loginIdentifier) === normalized
+  );
 }
 
 function optionalDate(value?: string | Date | null) {
@@ -768,55 +789,50 @@ async function upsertPostgresAccess(request: AccessRequest) {
 
 async function upsertApprovedUser(request: Awaited<ReturnType<typeof prisma.accessRequest.findUnique>> & {}) {
   if (!request) throw new Error("Missing access request.");
+  const normalizedEmail = normalizeEmail(request.email);
+  const normalizedMobile = normalizeMobile(request.mobile || "");
+  const loginIdentifier = normalizeLoginIdentifier(request.loginIdentifier || normalizedEmail || normalizedMobile);
   const submittedSubjects = normalizeSubmittedSubjects(request.submittedSubjects);
-  const user = await prisma.user.upsert({
-    where: { email: request.email },
-    update: {
-      name: request.parentName,
-      mobile: request.mobile || null,
-      role: request.role,
-      userType: request.userType,
-      status: request.status,
-      plan: request.plan,
-      loginIdentifier: request.loginIdentifier || request.email,
-      credentialHash: request.credentialHash,
-      tempPin: request.tempPin,
-      mustChangeCredentials: request.mustChangeCredentials,
-      approvedAt: request.approvedAt,
-      approvedBy: request.approvedBy,
-      dailyAiLimit: request.dailyAiLimit,
-      uploadLimit: request.uploadLimit,
-      canDownloadMaterials: request.canDownloadMaterials,
-      canUploadMaterials: request.canUploadMaterials,
-      canUseAI: request.canUseAI,
-      canUseOCR: request.canUseOCR,
-      canImportFromDrive: request.canImportFromDrive,
-      canIndexMaterials: request.canIndexMaterials,
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { email: { equals: normalizedEmail, mode: "insensitive" } },
+        ...(normalizedMobile ? [{ mobile: normalizedMobile }] : []),
+      ],
     },
-    create: {
-      email: request.email,
-      mobile: request.mobile || null,
-      name: request.parentName,
-      role: request.role,
-      userType: request.userType,
-      status: request.status,
-      plan: request.plan,
-      loginIdentifier: request.loginIdentifier || request.email,
-      credentialHash: request.credentialHash,
-      tempPin: request.tempPin,
-      mustChangeCredentials: request.mustChangeCredentials,
-      approvedAt: request.approvedAt,
-      approvedBy: request.approvedBy,
-      dailyAiLimit: request.dailyAiLimit,
-      uploadLimit: request.uploadLimit,
-      canDownloadMaterials: request.canDownloadMaterials,
-      canUploadMaterials: request.canUploadMaterials,
-      canUseAI: request.canUseAI,
-      canUseOCR: request.canUseOCR,
-      canImportFromDrive: request.canImportFromDrive,
-      canIndexMaterials: request.canIndexMaterials,
-    },
+    orderBy: { updatedAt: "desc" },
   });
+
+  const userData = {
+    email: normalizedEmail,
+    mobile: normalizedMobile || null,
+    name: request.parentName,
+    role: request.role,
+    userType: request.userType,
+    status: request.status,
+    plan: request.plan,
+    loginIdentifier,
+    credentialHash: request.credentialHash,
+    tempPin: request.tempPin,
+    mustChangeCredentials: request.mustChangeCredentials,
+    approvedAt: request.approvedAt,
+    approvedBy: request.approvedBy,
+    dailyAiLimit: request.dailyAiLimit,
+    uploadLimit: request.uploadLimit,
+    canDownloadMaterials: request.canDownloadMaterials,
+    canUploadMaterials: request.canUploadMaterials,
+    canUseAI: request.canUseAI,
+    canUseOCR: request.canUseOCR,
+    canImportFromDrive: request.canImportFromDrive,
+    canIndexMaterials: request.canIndexMaterials,
+  };
+
+  const user = existingUser
+    ? await prisma.user.update({
+        where: { id: existingUser.id },
+        data: userData,
+      })
+    : await prisma.user.create({ data: userData });
 
   // Multi-child registration: if the request includes a `submittedChildren` array,
   // create one Child per draft. Otherwise fall back to the legacy single-child flow
