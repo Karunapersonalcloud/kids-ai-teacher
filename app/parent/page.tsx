@@ -5,17 +5,26 @@ import {
   AlertTriangle,
   ArrowRight,
   BookOpen,
+  Brain,
+  CalendarDays,
   CheckCircle2,
+  Clock3,
   ClipboardCheck,
+  Gauge,
   GraduationCap,
   Lock,
+  MapPinned,
+  PlayCircle,
   RefreshCw,
   Sparkles,
   Target,
+  Trophy,
   UploadCloud,
   UserPlus,
 } from "lucide-react";
 import { findAccessById } from "@/lib/access-store";
+import type { AdaptiveLearningSnapshot } from "@/lib/adaptive-learning";
+import { getAdaptiveLearningForChild } from "@/lib/adaptive-learning-store";
 import { listAllChaptersForGrade, type ChapterPack } from "@/lib/chapter-catalog";
 import { listChapterMasteryForChild, type ChapterMasteryRecord, type ChapterStatus } from "@/lib/chapter-mastery-store";
 import { prisma } from "@/lib/db";
@@ -80,6 +89,13 @@ export default async function ParentDashboardPage({ searchParams }: { searchPara
   const selected =
     (params.childId && children.find((c) => c.id === params.childId)) || children[0];
   const diagnostic = await getLatestDiagnosticForChild(selected.id);
+  const adaptive = await getAdaptiveLearningForChild({
+    userId: parentUserId,
+    childId: selected.id,
+    childName: selected.name,
+    enrolledGrade: selected.grade,
+    diagnostic,
+  });
   const chapters = listAllChaptersForGrade(selected.grade);
   const mastery = await listChapterMasteryForChild(selected.id);
 
@@ -92,10 +108,15 @@ export default async function ParentDashboardPage({ searchParams }: { searchPara
 
         <div className="grid w-full gap-6 xl:grid-cols-12">
           <div className="space-y-6 xl:col-span-8 2xl:col-span-9">
-            <ChildProfileCard child={selected} diagnostic={diagnostic} />
-            <DiagnosticCallout child={selected} diagnostic={diagnostic} />
+            <ChildProfileCard child={selected} diagnostic={diagnostic} adaptive={adaptive} />
+            <DiagnosticCallout child={selected} diagnostic={diagnostic} adaptive={adaptive} />
+            <AdaptivePathCard adaptive={adaptive} />
+            <div className="grid gap-6 lg:grid-cols-2">
+              <ExamReadinessCard adaptive={adaptive} />
+              <MasteryMapCard adaptive={adaptive} />
+            </div>
             <ChapterProgressCard childId={selected.id} chapters={chapters} mastery={mastery} />
-            <TodayPlanCard diagnostic={diagnostic} />
+            <TodayPlanCard diagnostic={diagnostic} adaptive={adaptive} />
           </div>
           <aside className="space-y-4 xl:col-span-4 2xl:col-span-3">
             <SidebarAction
@@ -182,17 +203,28 @@ function ChildSwitcher({ items, selectedId }: { items: ChildRow[]; selectedId: s
   );
 }
 
-function ChildProfileCard({ child, diagnostic }: { child: ChildRow; diagnostic: DiagnosticRecord | undefined }) {
+function ChildProfileCard({
+  child,
+  diagnostic,
+  adaptive,
+}: {
+  child: ChildRow;
+  diagnostic: DiagnosticRecord | undefined;
+  adaptive: AdaptiveLearningSnapshot;
+}) {
   return (
     <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-slate-900">{child.name}</h2>
           <p className="text-sm text-slate-500">{child.grade} · {child.board || "Board not set"}</p>
+          <p className="mt-2 text-sm font-semibold text-slate-700">
+            Actual level: <span className="text-purple-700">{adaptive.actualLearningLevel}</span>
+          </p>
         </div>
         <div className="grid grid-cols-3 gap-3 text-center">
           <Metric label="Target" value="95%" tone="purple" />
-          <Metric label="Mastery" value={diagnostic ? `${Math.round(diagnostic.percentage)}%` : "—"} tone="blue" />
+          <Metric label="Readiness" value={diagnostic ? `${adaptive.gradeReadinessPercentage}%` : "—"} tone="blue" />
           <Metric label="Risk" value={diagnostic?.riskLevel || "—"} tone={diagnostic?.riskLevel === "Low" ? "green" : diagnostic?.riskLevel === "Medium" ? "amber" : diagnostic?.riskLevel === "High" ? "red" : "slate"} />
         </div>
       </div>
@@ -206,7 +238,15 @@ function ChildProfileCard({ child, diagnostic }: { child: ChildRow; diagnostic: 
   );
 }
 
-function DiagnosticCallout({ child, diagnostic }: { child: ChildRow; diagnostic: DiagnosticRecord | undefined }) {
+function DiagnosticCallout({
+  child,
+  diagnostic,
+  adaptive,
+}: {
+  child: ChildRow;
+  diagnostic: DiagnosticRecord | undefined;
+  adaptive: AdaptiveLearningSnapshot;
+}) {
   if (!diagnostic) {
     return (
       <section className="rounded-3xl bg-gradient-to-br from-purple-600 to-blue-600 p-6 text-white shadow-sm">
@@ -236,7 +276,7 @@ function DiagnosticCallout({ child, diagnostic }: { child: ChildRow; diagnostic:
             <CheckCircle2 className="h-3.5 w-3.5" /> Diagnostic done
           </span>
           <h2 className="mt-2 text-lg font-semibold text-slate-900">Current level</h2>
-          <p className="text-sm text-slate-500">Recommended start: {diagnostic.recommendedStartLevel || "Grade level"}</p>
+          <p className="text-sm text-slate-500">Recommended start: {adaptive.recommendedStartingPoint || "Grade level"}</p>
         </div>
         <Link
           href={`/diagnostic?childId=${child.id}`}
@@ -245,9 +285,115 @@ function DiagnosticCallout({ child, diagnostic }: { child: ChildRow; diagnostic:
           View / retake
         </Link>
       </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-4">
+        <Stat label="Enrolled class" value={child.grade} className="bg-slate-50 text-slate-700" />
+        <Stat label="Actual level" value={adaptive.actualLearningLevel} className="bg-purple-50 text-purple-700" />
+        <Stat label="Readiness" value={`${adaptive.gradeReadinessPercentage}%`} className="bg-blue-50 text-blue-700" />
+        <Stat
+          label="Recovery"
+          value={adaptive.foundationRecoveryRequired ? "Required" : "Not required"}
+          className={adaptive.foundationRecoveryRequired ? "bg-amber-50 text-amber-800" : "bg-green-50 text-green-700"}
+        />
+      </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <ConceptList title="Strong areas" items={diagnostic.strongAreas} tone="green" empty="No strong areas yet." />
         <ConceptList title="Weak areas" items={diagnostic.weakAreas} tone="red" empty="No weak areas detected." />
+      </div>
+    </section>
+  );
+}
+
+function AdaptivePathCard({ adaptive }: { adaptive: AdaptiveLearningSnapshot }) {
+  return (
+    <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <MapPinned className="h-5 w-5 text-purple-600" />
+            <h2 className="text-lg font-semibold text-slate-900">Personalized learning path</h2>
+          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Flow: Diagnostic → Foundation Recovery → Grade-Level Learning → Exam Mastery → 95% Target Plan
+          </p>
+        </div>
+        <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700">{adaptive.currentPhase}</span>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-3">
+        <MiniPlanColumn title="Foundation recovery" items={adaptive.foundationTopics} empty="No foundation recovery needed." tone="amber" />
+        <MiniPlanColumn title="Bridge topics" items={adaptive.bridgeTopics} empty="Bridge topics unlock as needed." tone="blue" />
+        <MiniPlanColumn title="Class syllabus" items={adaptive.classSyllabusTopics} empty="Class topics unlock after prerequisites." tone="green" />
+      </div>
+
+      <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+          <Brain className="h-4 w-4 text-purple-600" /> Weak-topic repair loop
+        </div>
+        <ul className="mt-2 space-y-1 text-sm text-slate-700">
+          {adaptive.weakTopicRepairLoop.slice(0, 4).map((step) => (
+            <li key={step} className="flex gap-2">
+              <span className="text-purple-600">•</span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function ExamReadinessCard({ adaptive }: { adaptive: AdaptiveLearningSnapshot }) {
+  return (
+    <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+      <div className="flex items-center gap-2">
+        <Trophy className="h-5 w-5 text-amber-600" />
+        <h2 className="text-lg font-semibold text-slate-900">95% exam readiness plan</h2>
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+        <Metric label="Now" value={`${adaptive.examReadiness.currentReadinessPercentage}%`} tone="blue" />
+        <Metric label="Predicted" value={`${adaptive.examReadiness.predictedScore}%`} tone="amber" />
+        <Metric label="Target" value={`${adaptive.examReadiness.targetScore}%`} tone="green" />
+      </div>
+      <div className="mt-4 flex items-center gap-2 rounded-2xl bg-slate-50 p-3 text-sm font-semibold text-slate-700">
+        <CalendarDays className="h-4 w-4 text-slate-500" />
+        Annual exam target date: {formatDate(adaptive.examReadiness.examDate)}
+      </div>
+      <ConceptList title="Blocking 95%" items={adaptive.examReadiness.topicsBlockingTarget.slice(0, 6)} tone="red" empty="No blocking topic detected." />
+      <ul className="mt-4 space-y-2 text-sm text-slate-700">
+        {adaptive.examReadiness.mockTestSchedule.map((item) => (
+          <li key={item} className="flex gap-2">
+            <span className="text-amber-600">•</span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function MasteryMapCard({ adaptive }: { adaptive: AdaptiveLearningSnapshot }) {
+  return (
+    <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+      <div className="flex items-center gap-2">
+        <Gauge className="h-5 w-5 text-blue-600" />
+        <h2 className="text-lg font-semibold text-slate-900">Mastery map</h2>
+      </div>
+      <div className="mt-4 space-y-2">
+        {adaptive.masteryMap.slice(0, 6).map((item) => (
+          <div key={`${item.subject}-${item.topic}`} className="rounded-2xl bg-slate-50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">{item.topic}</p>
+                <p className="text-xs text-slate-500">{item.subject}</p>
+              </div>
+              <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${masteryTone(item.status)}`}>{item.status}</span>
+            </div>
+            <div className="mt-2 h-2 rounded-full bg-white">
+              <div className="h-2 rounded-full bg-blue-600" style={{ width: `${Math.min(100, Math.max(0, item.masteryScore))}%` }} />
+            </div>
+            <p className="mt-2 text-xs font-semibold text-slate-600">{item.nextAction}</p>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -337,30 +483,112 @@ function ChapterStatusChip({ status }: { status: ChapterStatus }) {
   );
 }
 
-function TodayPlanCard({ diagnostic }: { diagnostic: DiagnosticRecord | undefined }) {
-  const plan = diagnostic?.learningPlan?.length
-    ? diagnostic.learningPlan
+function TodayPlanCard({
+  diagnostic,
+  adaptive,
+}: {
+  diagnostic: DiagnosticRecord | undefined;
+  adaptive: AdaptiveLearningSnapshot;
+}) {
+  const plan = adaptive.todayPlan.length
+    ? adaptive.todayPlan
     : [
-        "Complete the baseline diagnostic to get a personalised plan.",
-        "Once done, the first chapter starts with a short pre-check.",
-        "Target 95% mastery in chapter exam before moving on.",
+        {
+          title: "Complete the baseline diagnostic",
+          type: "diagnostic" as const,
+          minutes: 30,
+          subject: "Overall",
+          topic: "Baseline",
+          action: "Answer honestly so the app can start from the real level.",
+        },
       ];
   return (
     <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
-      <div className="flex items-center gap-2">
-        <BookOpen className="h-5 w-5 text-purple-600" />
-        <h2 className="text-lg font-semibold text-slate-900">Today&rsquo;s focus</h2>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Clock3 className="h-5 w-5 text-purple-600" />
+          <h2 className="text-lg font-semibold text-slate-900">Today&rsquo;s adaptive plan</h2>
+        </div>
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{adaptive.learningSpeed}</span>
       </div>
-      <ul className="mt-3 space-y-2 text-sm text-slate-700">
+      <p className="mt-2 text-sm font-semibold text-slate-600">{adaptive.parentAction}</p>
+      <ul className="mt-4 grid gap-3 md:grid-cols-2">
         {plan.map((step, index) => (
-          <li key={index} className="flex gap-2">
-            <span className="text-purple-600">•</span>
-            <span>{step}</span>
+          <li key={`${step.title}-${index}`} className="rounded-2xl bg-slate-50 p-4">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-100 text-purple-700">
+                <PlayCircle className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{step.title}</p>
+                <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  {step.subject} · {step.minutes} min · {step.type}
+                </p>
+                <p className="mt-2 text-sm text-slate-600">{step.action}</p>
+              </div>
+            </div>
           </li>
         ))}
       </ul>
+      {diagnostic?.learningPlan?.length ? (
+        <details className="mt-4 rounded-2xl bg-white p-3 text-sm text-slate-600 ring-1 ring-slate-100">
+          <summary className="cursor-pointer font-semibold text-slate-800">Diagnostic learning rules</summary>
+          <ul className="mt-2 space-y-1">
+            {diagnostic.learningPlan.map((step) => (
+              <li key={step} className="flex gap-2">
+                <span className="text-purple-600">•</span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
     </section>
   );
+}
+
+function MiniPlanColumn({
+  title,
+  items,
+  empty,
+  tone,
+}: {
+  title: string;
+  items: string[];
+  empty: string;
+  tone: "amber" | "blue" | "green";
+}) {
+  const tones: Record<typeof tone, string> = {
+    amber: "text-amber-800 bg-amber-50",
+    blue: "text-blue-700 bg-blue-50",
+    green: "text-green-700 bg-green-50",
+  };
+  return (
+    <div className="rounded-2xl bg-slate-50 p-4">
+      <div className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${tones[tone]}`}>{title}</div>
+      {items.length ? (
+        <ul className="mt-3 space-y-1.5 text-sm font-semibold text-slate-700">
+          {items.slice(0, 4).map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-sm text-slate-500">{empty}</p>
+      )}
+    </div>
+  );
+}
+
+function masteryTone(status: AdaptiveLearningSnapshot["masteryMap"][number]["status"]) {
+  if (status === "Exam-ready" || status === "Mastered") return "bg-green-100 text-green-700";
+  if (status === "Improving" || status === "Learning") return "bg-blue-100 text-blue-700";
+  if (status === "Needs practice") return "bg-amber-100 text-amber-800";
+  if (status === "Weak") return "bg-red-100 text-red-700";
+  return "bg-slate-200 text-slate-600";
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function Metric({ label, value, tone }: { label: string; value: string; tone: "purple" | "blue" | "green" | "amber" | "red" | "slate" }) {
@@ -376,6 +604,15 @@ function Metric({ label, value, tone }: { label: string; value: string; tone: "p
     <div className={`min-w-[80px] rounded-2xl px-3 py-2 ${tones[tone]}`}>
       <div className="text-xs font-semibold uppercase tracking-wide opacity-80">{label}</div>
       <div className="mt-0.5 text-base font-bold">{value}</div>
+    </div>
+  );
+}
+
+function Stat({ label, value, className }: { label: string; value: string; className: string }) {
+  return (
+    <div className={`rounded-2xl px-4 py-3 ${className}`}>
+      <div className="text-xs font-semibold uppercase tracking-wide opacity-70">{label}</div>
+      <div className="mt-1 text-sm font-bold">{value}</div>
     </div>
   );
 }

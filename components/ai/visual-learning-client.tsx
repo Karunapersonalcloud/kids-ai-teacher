@@ -46,6 +46,8 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
   const selectedChapter = getChapterByNumber(child.grade, subject, chapterNumber);
   const conceptOptions = ["All Concepts", ...selectedChapter.concepts];
   const selectedConcept = conceptOptions.includes(concept) ? concept : "All Concepts";
+  const sceneCount = lesson.scenes?.length || 0;
+  const slideCount = lesson.slides?.length || 0;
 
   async function createLesson() {
     setLoading(true);
@@ -67,7 +69,13 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
           topic: selectedConcept,
         }),
       });
-      const data = (await response.json()) as Partial<VisualLesson> & { error?: string };
+      const rawResponse = await response.text();
+      let data: Partial<VisualLesson> & { error?: string } = {};
+      try {
+        data = rawResponse ? (JSON.parse(rawResponse) as Partial<VisualLesson> & { error?: string }) : {};
+      } catch {
+        data = { error: "Could not read the lesson response. Please try again." };
+      }
       if (!response.ok || data.error) {
         setError(data.error || "Could not create the lesson right now.");
         return;
@@ -157,18 +165,20 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
               <Sparkles className="h-7 w-7" />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-slate-950">{lesson.title}</h1>
+              <h1 className="text-2xl font-black text-slate-950">{lesson.lessonTitle || lesson.title}</h1>
               <p className="mt-1 text-sm font-bold text-slate-500">{lesson.gradeLevel}</p>
             </div>
           </div>
           <div>
-            <p className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-700">{lesson.slides?.length || 0} teacher slides</p>
+            <p className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-700">
+              {sceneCount ? `${sceneCount} animated scenes` : `${slideCount} teacher slides`}
+            </p>
           </div>
         </div>
       </section>
 
       <VisualLessonPlayer
-        key={`${lesson.title}-${selectedConcept}-${lesson.slides?.length || 0}`}
+        key={`${lesson.title}-${selectedConcept}-${sceneCount}-${slideCount}`}
         lesson={lesson}
         grade={child.grade}
         board={board}

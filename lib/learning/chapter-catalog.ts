@@ -120,7 +120,21 @@ const catalog: Record<number, LearningSubjectCatalog> = {
   },
   9: {
     Maths: [
-      { number: 1, name: "Number Systems", concepts: ["Real Numbers", "Irrational Numbers", "Decimal Expansion", "Laws of Exponents"] },
+      {
+        number: 1,
+        name: "Number Systems",
+        concepts: [
+          "Natural numbers",
+          "Whole numbers",
+          "Integers",
+          "Rational numbers",
+          "Irrational numbers",
+          "Real numbers",
+          "Number line representation",
+          "Decimal expansion",
+          "Laws of exponents",
+        ],
+      },
       { number: 2, name: "Polynomials", concepts: ["Introduction to Polynomials", "Degree of a Polynomial", "Types of Polynomials", "Zeroes of a Polynomial", "Remainder Theorem", "Factor Theorem", "Algebraic Identities"] },
       { number: 3, name: "Coordinate Geometry", concepts: ["Cartesian Plane", "Coordinates of a Point", "Quadrants", "Plotting Points"] },
       { number: 4, name: "Linear Equations in Two Variables", concepts: ["Linear equation form", "Solutions of a linear equation", "Graph of a linear equation", "Applications"] },
@@ -187,6 +201,34 @@ function namedChapters(names: string[]): LearningChapter[] {
 
 function conceptsForChapter(name: string) {
   const lower = name.toLowerCase();
+  if (lower.includes("matter in our surroundings")) {
+    return [
+      "Meaning of matter",
+      "Matter is made of particles",
+      "Particles have space between them",
+      "Particles are continuously moving",
+      "Particles attract each other",
+      "States of matter",
+      "Change of state",
+      "Melting, boiling, evaporation",
+      "Latent heat",
+      "Sublimation",
+      "Factors affecting evaporation",
+    ];
+  }
+  if (lower.includes("number systems")) {
+    return [
+      "Natural numbers",
+      "Whole numbers",
+      "Integers",
+      "Rational numbers",
+      "Irrational numbers",
+      "Real numbers",
+      "Number line representation",
+      "Decimal expansion",
+      "Laws of exponents",
+    ];
+  }
   if (lower.includes("fraction")) return ["Part of a whole", "Equivalent fractions", "Simplification", "Word problems"];
   if (lower.includes("motion")) return ["Rest and motion", "Distance and displacement", "Speed", "Velocity", "Acceleration"];
   if (lower.includes("chemical reaction")) return ["Reactants and products", "Balanced equations", "Types of reactions", "Daily-life examples"];

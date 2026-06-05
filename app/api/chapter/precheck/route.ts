@@ -7,6 +7,7 @@ import {
   publicPack,
   scorePrecheck,
 } from "@/lib/chapter-catalog";
+import { recordPracticeAttemptAndUpdateMastery } from "@/lib/adaptive-learning-store";
 import { upsertChapterMastery } from "@/lib/chapter-mastery-store";
 import { getLatestReadiness, saveChapterReadiness } from "@/lib/chapter-readiness-store";
 import { isPostgresEnabled } from "@/lib/persistence-provider";
@@ -38,8 +39,9 @@ export async function GET(request: Request) {
 
   const user = await getSessionUser();
   if (!user) return Response.json({ error: "Sign-in required." }, { status: 401 });
+  const parentUserId = user.userId || user.id;
 
-  const child = await getOwnedChild(user.id, childId);
+  const child = await getOwnedChild(parentUserId, childId);
   if (!child) return Response.json({ error: "Child not found." }, { status: 404 });
 
   const pack = getChapterPack(chapterId);
@@ -59,8 +61,9 @@ export async function POST(request: Request) {
 
   const user = await getSessionUser();
   if (!user) return Response.json({ error: "Sign-in required." }, { status: 401 });
+  const parentUserId = user.userId || user.id;
 
-  const child = await getOwnedChild(user.id, body.childId);
+  const child = await getOwnedChild(parentUserId, body.childId);
   if (!child) return Response.json({ error: "Child not found." }, { status: 404 });
 
   const pack = getChapterPack(body.chapterId);
@@ -71,7 +74,7 @@ export async function POST(request: Request) {
 
   const score = scorePrecheck(pack, answers);
   const result = await saveChapterReadiness({
-    userId: user.id,
+    userId: parentUserId,
     childId: body.childId,
     subject: pack.subject,
     chapter: pack.chapter,
@@ -81,12 +84,25 @@ export async function POST(request: Request) {
 
   // Move chapter from locked → learning if ready; otherwise stay locked but record weak prerequisites.
   await upsertChapterMastery({
-    userId: user.id,
+    userId: parentUserId,
     childId: body.childId,
     subject: pack.subject,
     chapter: pack.chapter,
     status: score.status === "ready" ? "learning" : "locked",
     weakConcepts: score.weakPrerequisites,
+  });
+  await recordPracticeAttemptAndUpdateMastery({
+    userId: parentUserId,
+    childId: body.childId,
+    subject: pack.subject,
+    chapter: pack.chapter,
+    topic: score.weakPrerequisites[0] || pack.chapter,
+    attemptType: "precheck",
+    score: score.score,
+    total: score.total,
+    percentage: score.percentage,
+    timeSpentMinutes: 10,
+    mistakes: score.weakPrerequisites,
   });
 
   return Response.json({ result });

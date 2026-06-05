@@ -126,6 +126,10 @@ export type VisualSceneType =
   | "comparison-board"
   | "formula-board"
   | "table-board"
+  | "particle-motion-board"
+  | "states-of-matter-board"
+  | "heating-curve-board"
+  | "evaporation-board"
   | "force-arrows"
   | "motion-track"
   | "diagram-label"
@@ -152,10 +156,19 @@ export type VisualLessonScene = {
   studentQuestion?: VisualLessonStudentQuestion;
 };
 
+export type VisualLessonChapterConcept = {
+  conceptNo: number;
+  conceptTitle: string;
+  scenes: VisualLessonScene[];
+};
+
 export type VisualLesson = {
   title: string;
   lessonTitle?: string;
   gradeLevel: string;
+  lessonScope?: "topic" | "chapter" | string;
+  chapterTitle?: string;
+  chapterConcepts?: VisualLessonChapterConcept[];
   mode?: "animated-visual-teacher" | string;
   scenes?: VisualLessonScene[];
   slides: VisualLessonSlide[];

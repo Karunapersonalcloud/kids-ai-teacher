@@ -3,6 +3,7 @@ import { findAccessById } from "@/lib/access-store";
 import { prisma } from "@/lib/db";
 import { getDiagnosticPackForGrade, scoreDiagnostic, type DiagnosticAnswer } from "@/lib/diagnostic-catalog";
 import { getLatestDiagnosticForChild, saveDiagnosticResult } from "@/lib/diagnostic-store";
+import { syncAdaptiveLearningForDiagnostic } from "@/lib/adaptive-learning-store";
 import { isPostgresEnabled } from "@/lib/persistence-provider";
 import { getSessionUserIdFromCookie } from "@/lib/session";
 
@@ -31,8 +32,9 @@ export async function GET(request: Request) {
 
   const user = await getSessionUser();
   if (!user) return Response.json({ error: "Sign-in required." }, { status: 401 });
+  const parentUserId = user.userId || user.id;
 
-  const child = await getOwnedChild(user.id, childId);
+  const child = await getOwnedChild(parentUserId, childId);
   if (!child) return Response.json({ error: "Child not found." }, { status: 404 });
 
   const pack = getDiagnosticPackForGrade(child.grade);
@@ -58,20 +60,28 @@ export async function POST(request: Request) {
 
   const user = await getSessionUser();
   if (!user) return Response.json({ error: "Sign-in required." }, { status: 401 });
+  const parentUserId = user.userId || user.id;
 
-  const child = await getOwnedChild(user.id, childId);
+  const child = await getOwnedChild(parentUserId, childId);
   if (!child) return Response.json({ error: "Child not found." }, { status: 404 });
 
   const pack = getDiagnosticPackForGrade(child.grade);
   const score = scoreDiagnostic(pack, answers);
   const result = await saveDiagnosticResult({
-    userId: user.id,
+    userId: parentUserId,
     childId,
     grade: child.grade,
     subject: "Overall",
     answers,
     score,
   });
+  const adaptivePlan = await syncAdaptiveLearningForDiagnostic({
+    userId: parentUserId,
+    childId,
+    childName: child.name,
+    enrolledGrade: child.grade,
+    diagnostic: result,
+  });
 
-  return Response.json({ result });
+  return Response.json({ result, adaptivePlan });
 }

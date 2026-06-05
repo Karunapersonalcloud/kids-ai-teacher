@@ -70,6 +70,9 @@ export function getDiagnosticPackForGrade(grade: string): DiagnosticPack {
       title: `${grade} Baseline Diagnostic`,
       grade,
       questions: [
+        q("alpha-1", "Reading Foundations", "English", "Which letter comes after M?", ["L", "N", "O", "P"], 1),
+        q("numrec-1", "Number Recognition", "Mathematics", "Which number means three hundred five?", ["35", "305", "350", "3005"], 1),
+        q("arith-1", "Arithmetic Basics", "Mathematics", "9 + 6 = ?", ["14", "15", "16", "96"], 1),
         q("frac-1", "Fractions", "Mathematics", "Simplify: 18/24", ["2/3", "3/4", "4/5", "1/2"], 1),
         q("dec-1", "Decimals", "Mathematics", "0.6 × 0.5 = ?", ["0.30", "0.11", "0.06", "0.36"], 0),
         q("per-1", "Percentages", "Mathematics", "20% of 250 = ?", ["25", "40", "50", "75"], 2),
@@ -87,6 +90,9 @@ export function getDiagnosticPackForGrade(grade: string): DiagnosticPack {
     title: `${grade} Baseline Diagnostic`,
     grade,
     questions: [
+      q("alpha-1", "Reading Foundations", "English", "Which letter comes after M?", ["L", "N", "O", "P"], 1),
+      q("numrec-1", "Number Recognition", "Mathematics", "Which number means three hundred five?", ["35", "305", "350", "3005"], 1),
+      q("arith-1", "Arithmetic Basics", "Mathematics", "12 + 9 = ?", ["19", "20", "21", "129"], 2),
       q("alg-1", "Algebra Foundation", "Mathematics", "Solve: 2x − 5 = 11", ["2", "6", "8", "10"], 2),
       q("alg-2", "Algebra Foundation", "Mathematics", "Factorise: x² − 9", ["(x−3)(x−3)", "(x+3)(x+3)", "(x−3)(x+3)", "(x+9)(x−1)"], 2),
       q("frac-1", "Fractions / Decimals", "Mathematics", "Convert 7/20 to decimal.", ["0.07", "0.20", "0.35", "0.70"], 2),
@@ -129,22 +135,48 @@ export type DiagnosticScore = {
   total: number;
   percentage: number;
   perArea: Record<string, { correct: number; total: number }>;
+  domainLevels: Record<string, { percentage: number; level: string }>;
   strongAreas: string[];
   weakAreas: string[];
   riskLevel: "Low" | "Medium" | "High";
   recommendedStartLevel: string;
+  actualLearningLevel: string;
+  gradeReadinessPercentage: number;
+  recommendedStartingPoint: string;
+  foundationRecoveryRequired: boolean;
+  readingLevel: string;
+  writingLevel: string;
+  numberRecognitionLevel: string;
+  arithmeticLevel: string;
+  subjectFoundationLevel: string;
+  classLevelReadiness: string;
+  learningSpeed: string;
+  mistakePatterns: { area: string; pattern: string; repairAction: string }[];
   learningPlan: string[];
 };
 
 export function scoreDiagnostic(pack: DiagnosticPack, answers: DiagnosticAnswer[]): DiagnosticScore {
   const answerById = new Map(answers.map((a) => [a.questionId, a.choiceId]));
   const perArea: Record<string, { correct: number; total: number }> = {};
+  const perDomain: Record<string, { correct: number; total: number }> = {
+    reading: { correct: 0, total: 0 },
+    writing: { correct: 0, total: 0 },
+    numberRecognition: { correct: 0, total: 0 },
+    arithmetic: { correct: 0, total: 0 },
+    subjectFoundation: { correct: 0, total: 0 },
+    classLevelReadiness: { correct: 0, total: 0 },
+  };
   let score = 0;
 
   for (const question of pack.questions) {
     const area = (perArea[question.area] ??= { correct: 0, total: 0 });
+    const correct = answerById.get(question.id) === question.correctChoiceId;
     area.total += 1;
-    if (answerById.get(question.id) === question.correctChoiceId) {
+    for (const domain of domainsForQuestion(question)) {
+      perDomain[domain].total += 1;
+      if (correct) perDomain[domain].correct += 1;
+    }
+    if (correct) {
       area.correct += 1;
       score += 1;
     }
@@ -159,24 +191,51 @@ export function scoreDiagnostic(pack: DiagnosticPack, answers: DiagnosticAnswer[
   }));
   const strongAreas = areaPercentages.filter((a) => a.percentage >= 75).map((a) => a.area);
   const weakAreas = areaPercentages.filter((a) => a.percentage < 60).map((a) => a.area);
+  const classNumber = getClassNumberFromGrade(pack.grade) || 1;
+  const domainLevels = Object.fromEntries(
+    Object.entries(perDomain).map(([domain, value]) => {
+      const domainPercentage = value.total === 0 ? percentage : Math.round((value.correct / value.total) * 1000) / 10;
+      return [domain, { percentage: domainPercentage, level: levelLabel(classNumber, domainPercentage) }];
+    })
+  );
 
   const riskLevel: DiagnosticScore["riskLevel"] = percentage >= 75 ? "Low" : percentage >= 50 ? "Medium" : "High";
-  const recommendedStartLevel = percentage >= 80
-    ? "Grade level"
-    : percentage >= 60
-      ? "Grade level with revision"
-      : percentage >= 40
-        ? "One grade below for prerequisites"
-        : "Foundation recovery before grade level";
+  const actualLearningLevel = levelLabel(classNumber, percentage);
+  const readingLevel = domainLevels.reading.level;
+  const writingLevel = domainLevels.writing.level;
+  const numberRecognitionLevel = domainLevels.numberRecognition.level;
+  const arithmeticLevel = domainLevels.arithmetic.level;
+  const subjectFoundationLevel = domainLevels.subjectFoundation.level;
+  const classLevelReadiness = domainLevels.classLevelReadiness.level;
+  const foundationRecoveryRequired =
+    percentage < 60 ||
+    domainLevels.reading.percentage < 50 ||
+    domainLevels.numberRecognition.percentage < 50 ||
+    domainLevels.arithmetic.percentage < 50;
+  const recommendedStartingPoint = foundationRecoveryRequired
+    ? `Foundation Recovery Level ${Math.max(1, estimatedClassNumber(classNumber, Math.min(percentage, domainLevels.arithmetic.percentage, domainLevels.reading.percentage)))}`
+    : percentage >= 80
+      ? "Grade-Level Learning"
+      : "Bridge Course before Grade-Level Learning";
+  const recommendedStartLevel = recommendedStartingPoint;
+  const learningSpeed = percentage >= 75 ? "Fast progression possible" : percentage >= 50 ? "Steady with revision support" : "Slow foundation recovery";
+  const mistakePatterns = weakAreas.map((area) => ({
+    area,
+    pattern: `Repeated gaps in ${area}`,
+    repairAction: repairActionForArea(area),
+  }));
 
   const learningPlan: string[] = [];
+  learningPlan.push(`Start phase: ${foundationRecoveryRequired ? "Foundation Recovery" : percentage >= 80 ? "Grade-Level Learning" : "Bridge Learning"}.`);
+  learningPlan.push(`Actual level estimate: ${actualLearningLevel}; enrolled level: ${pack.grade}.`);
   if (weakAreas.length) {
-    learningPlan.push(`Strengthen ${weakAreas.join(", ")} with daily 15-minute practice.`);
+    learningPlan.push(`Repair weak areas first: ${weakAreas.join(", ")}.`);
   }
-  learningPlan.push("Begin first chapter with a pre-check before lessons.");
-  learningPlan.push("Target 95% mastery in chapter exam before next chapter.");
+  learningPlan.push("Use Visual Teacher Mode, then a quick quiz, then practice questions.");
+  learningPlan.push("If a topic quiz is below 70%, explain again with another visual and move to the prerequisite.");
+  learningPlan.push("Target 95% readiness with weekly revision and mock tests.");
   if (riskLevel === "High") {
-    learningPlan.push("Schedule short daily revision sessions; avoid stress, build confidence.");
+    learningPlan.push("Keep sessions short: 20 minutes foundation recovery + 10 minutes confidence practice.");
   }
 
   return {
@@ -184,10 +243,55 @@ export function scoreDiagnostic(pack: DiagnosticPack, answers: DiagnosticAnswer[
     total,
     percentage,
     perArea,
+    domainLevels,
     strongAreas,
     weakAreas,
     riskLevel,
     recommendedStartLevel,
+    actualLearningLevel,
+    gradeReadinessPercentage: percentage,
+    recommendedStartingPoint,
+    foundationRecoveryRequired,
+    readingLevel,
+    writingLevel,
+    numberRecognitionLevel,
+    arithmeticLevel,
+    subjectFoundationLevel,
+    classLevelReadiness,
+    learningSpeed,
+    mistakePatterns,
     learningPlan,
   };
+}
+
+type DiagnosticDomain = "reading" | "writing" | "numberRecognition" | "arithmetic" | "subjectFoundation" | "classLevelReadiness";
+
+function domainsForQuestion(question: DiagnosticQuestion): DiagnosticDomain[] {
+  const text = `${question.area} ${question.subject} ${question.prompt}`.toLowerCase();
+  const domains = new Set<DiagnosticDomain>(["classLevelReadiness"]);
+  if (/reading|comprehension|alphabet|vowel|synonym|antonym|language/.test(text)) domains.add("reading");
+  if (/writing|grammar|sentence|verb|language/.test(text)) domains.add("writing");
+  if (/number recognition|number sense|which number|biggest number|comes after|place value|number line/.test(text)) domains.add("numberRecognition");
+  if (/math|addition|subtraction|multiplication|division|arithmetic|fraction|decimal|percentage|algebra|solve|simplify|factorise/.test(text)) domains.add("arithmetic");
+  if (/science|social|evs|constitution|energy|boils|methane|study/.test(text)) domains.add("subjectFoundation");
+  return Array.from(domains);
+}
+
+function estimatedClassNumber(enrolledClass: number, percentage: number) {
+  if (percentage >= 80) return enrolledClass;
+  if (percentage >= 60) return Math.max(1, enrolledClass - 1);
+  if (percentage >= 40) return Math.max(1, enrolledClass - 2);
+  return Math.max(1, enrolledClass - 4);
+}
+
+function levelLabel(enrolledClass: number, percentage: number) {
+  return `Class ${estimatedClassNumber(enrolledClass, percentage)} level`;
+}
+
+function repairActionForArea(area: string) {
+  if (/reading|language|grammar/i.test(area)) return "Start reading recovery with phonics, sentence meaning, and short comprehension.";
+  if (/number|addition|subtraction|multiplication|division|fraction|decimal|percentage|algebra/i.test(area)) return "Move to prerequisite maths visuals, worked examples, and daily fluency practice.";
+  if (/science/i.test(area)) return "Use diagrams, cause-effect visuals, and one experiment-style explanation.";
+  if (/social/i.test(area)) return "Use timeline/map/context cards before textbook questions.";
+  return "Explain again, show a simpler visual, and give two scaffolded practice questions.";
 }

@@ -1,4 +1,5 @@
 import { unique, updateProgress } from "@/lib/progress-store";
+import { recordPracticeAttemptAndUpdateMastery } from "@/lib/adaptive-learning-store";
 import { prisma } from "@/lib/db";
 import { isPostgresEnabled } from "@/lib/persistence-provider";
 import type { ChildId } from "@/lib/types";
@@ -33,5 +34,16 @@ export async function POST(request: Request) {
     weakConcepts: unique([...record.weakConcepts, ...weakConcepts]),
     starsEarned: record.starsEarned + Math.max(1, score * 2),
   }));
+  await recordPracticeAttemptAndUpdateMastery({
+    childId: body.childId,
+    subject: body.subject || "General",
+    topic: weakConcepts[0] || "Mixed quiz",
+    attemptType: "quiz",
+    score,
+    total,
+    percentage: total ? (score / total) * 100 : 0,
+    timeSpentMinutes: 10,
+    mistakes: weakConcepts,
+  });
   return Response.json({ progress });
 }

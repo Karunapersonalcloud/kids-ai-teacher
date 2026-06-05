@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { findAccessById } from "@/lib/access-store";
 import { createBacklogPlan } from "@/lib/backlog-store";
 import { prisma } from "@/lib/db";
+import { recordPracticeAttemptAndUpdateMastery } from "@/lib/adaptive-learning-store";
 import {
   type ChapterAnswer,
   MASTERY_PASS_PERCENT,
@@ -40,8 +41,9 @@ export async function GET(request: Request) {
 
   const user = await getSessionUser();
   if (!user) return Response.json({ error: "Sign-in required." }, { status: 401 });
+  const parentUserId = user.userId || user.id;
 
-  const child = await getOwnedChild(user.id, childId);
+  const child = await getOwnedChild(parentUserId, childId);
   if (!child) return Response.json({ error: "Child not found." }, { status: 404 });
 
   const pack = getChapterPack(chapterId);
@@ -71,8 +73,9 @@ export async function POST(request: Request) {
 
   const user = await getSessionUser();
   if (!user) return Response.json({ error: "Sign-in required." }, { status: 401 });
+  const parentUserId = user.userId || user.id;
 
-  const child = await getOwnedChild(user.id, body.childId);
+  const child = await getOwnedChild(parentUserId, body.childId);
   if (!child) return Response.json({ error: "Child not found." }, { status: 404 });
 
   const pack = getChapterPack(body.chapterId);
@@ -90,7 +93,7 @@ export async function POST(request: Request) {
   const status = score.mastered ? "mastered" : score.percentage >= 60 ? "revision" : "learning";
 
   const mastery = await upsertChapterMastery({
-    userId: user.id,
+    userId: parentUserId,
     childId: body.childId,
     subject: pack.subject,
     chapter: pack.chapter,
@@ -104,13 +107,26 @@ export async function POST(request: Request) {
   let backlogPlan = undefined;
   if (!score.mastered && score.weakConcepts.length) {
     backlogPlan = await createBacklogPlan({
-      userId: user.id,
+      userId: parentUserId,
       childId: body.childId,
       subject: pack.subject,
       chapter: pack.chapter,
       weakConcepts: score.weakConcepts,
     });
   }
+  await recordPracticeAttemptAndUpdateMastery({
+    userId: parentUserId,
+    childId: body.childId,
+    subject: pack.subject,
+    chapter: pack.chapter,
+    topic: score.weakConcepts[0] || pack.chapter,
+    attemptType: "chapter-exam",
+    score: score.score,
+    total: score.total,
+    percentage: score.percentage,
+    timeSpentMinutes: 20,
+    mistakes: score.weakConcepts,
+  });
 
   return Response.json({ score, mastery, backlogPlan, passMark: MASTERY_PASS_PERCENT });
 }

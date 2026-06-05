@@ -193,8 +193,15 @@ function ResultView({ result, childName, onRetake }: { result: DiagnosticRecord;
 
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <Stat label="Risk level" value={result.riskLevel} className={riskTone} />
-          <Stat label="Recommended start" value={result.recommendedStartLevel || "—"} className="bg-slate-50 text-slate-700" />
-          <Stat label="Subject" value={result.subject} className="bg-slate-50 text-slate-700" />
+          <Stat label="Actual level" value={result.actualLearningLevel || "Not measured"} className="bg-purple-50 text-purple-700" />
+          <Stat label="Grade readiness" value={`${Math.round(result.gradeReadinessPercentage ?? result.percentage)}%`} className="bg-blue-50 text-blue-700" />
+          <Stat label="Recommended start" value={result.recommendedStartingPoint || result.recommendedStartLevel || "—"} className="bg-slate-50 text-slate-700" />
+          <Stat
+            label="Foundation recovery"
+            value={result.foundationRecoveryRequired ? "Required" : "Not required"}
+            className={result.foundationRecoveryRequired ? "bg-amber-50 text-amber-800" : "bg-green-50 text-green-700"}
+          />
+          <Stat label="Learning speed" value={result.learningSpeed || "Steady"} className="bg-slate-50 text-slate-700" />
         </div>
       </div>
 
@@ -202,6 +209,33 @@ function ResultView({ result, childName, onRetake }: { result: DiagnosticRecord;
         <Panel title="Strong areas" empty="No strong areas detected yet." items={result.strongAreas} tone="green" />
         <Panel title="Weak areas (focus here)" empty="No weak areas — great baseline!" items={result.weakAreas} tone="red" />
       </div>
+
+      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+        <h3 className="text-sm font-semibold text-slate-900">Baseline levels by skill</h3>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <Stat label="Reading" value={result.readingLevel} className="bg-slate-50 text-slate-700" />
+          <Stat label="Writing" value={result.writingLevel} className="bg-slate-50 text-slate-700" />
+          <Stat label="Numbers" value={result.numberRecognitionLevel} className="bg-slate-50 text-slate-700" />
+          <Stat label="Arithmetic" value={result.arithmeticLevel} className="bg-slate-50 text-slate-700" />
+          <Stat label="Subject foundation" value={result.subjectFoundationLevel} className="bg-slate-50 text-slate-700" />
+          <Stat label="Class readiness" value={result.classLevelReadiness} className="bg-slate-50 text-slate-700" />
+        </div>
+      </div>
+
+      {result.mistakePatterns.length > 0 && (
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+          <h3 className="text-sm font-semibold text-slate-900">Mistake patterns and repair loop</h3>
+          <ul className="mt-3 space-y-3">
+            {result.mistakePatterns.map((pattern) => (
+              <li key={pattern.area} className="rounded-2xl bg-slate-50 p-4 text-sm">
+                <div className="font-semibold text-slate-900">{pattern.area}</div>
+                <div className="mt-1 text-slate-600">{pattern.pattern}</div>
+                <div className="mt-2 rounded-xl bg-white p-3 font-semibold text-purple-700">{pattern.repairAction}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
         <h3 className="text-sm font-semibold text-slate-900">Daily learning plan</h3>

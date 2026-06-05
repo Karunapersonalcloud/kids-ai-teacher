@@ -4,7 +4,7 @@ import { getChapterByNumber } from "@/lib/learning/chapter-catalog";
 import { checkAndIncrementAiUsage } from "@/lib/usage-store";
 import { getRequestAccess } from "@/lib/request-access";
 import type { PlanName } from "@/lib/billing-types";
-import type { ChildId, VisualLesson, VisualLessonScene, VisualLessonSlide, VisualLessonStep, VisualSceneType, VisualType } from "@/lib/types";
+import type { ChildId, VisualLesson, VisualLessonChapterConcept, VisualLessonScene, VisualLessonSlide, VisualLessonStep, VisualSceneType, VisualType } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -26,6 +26,10 @@ const sceneTypes: VisualSceneType[] = [
   "comparison-board",
   "formula-board",
   "table-board",
+  "particle-motion-board",
+  "states-of-matter-board",
+  "heating-curve-board",
+  "evaporation-board",
   "force-arrows",
   "motion-track",
   "diagram-label",
@@ -53,7 +57,13 @@ export async function POST(request: Request) {
     return Response.json({ error: "AI access is not enabled for this account." }, { status: 403 });
   }
   const session = getSessionFromCookie(request.headers.get("cookie") || "");
-  const usage = await checkAndIncrementAiUsage(access.userId || session.userId, access.plan || session.plan, access.dailyAiLimit);
+  let usage: Awaited<ReturnType<typeof checkAndIncrementAiUsage>>;
+  try {
+    usage = await checkAndIncrementAiUsage(access.userId || session.userId, access.plan || session.plan, access.dailyAiLimit);
+  } catch (error) {
+    console.warn("[visual-lesson] Usage check failed", error);
+    return Response.json({ error: "Could not check AI usage right now. Please try again." }, { status: 503 });
+  }
   if (!usage.allowed) {
     return Response.json({ error: "Daily AI limit reached. Please try tomorrow or upgrade access.", usage }, { status: 429 });
   }
@@ -65,10 +75,15 @@ export async function POST(request: Request) {
   const catalogChapter = getChapterByNumber(grade, subject, Number(body.chapterNumber) || 1);
   const chapterNumber = Number(body.chapterNumber) || catalogChapter.number;
   const chapterName = body.chapterName || catalogChapter.name;
-  const conceptName = body.conceptName || body.topic || catalogChapter.concepts[0] || chapterName;
   const concepts = body.concepts?.length ? body.concepts : catalogChapter.concepts;
-  const profile = buildTopicProfile({ board, subject, chapterName, conceptName, concepts });
-  const fallback = createFallbackVisualLesson({ grade, board, subject, chapterNumber, chapterName, conceptName, profile });
+  const conceptName = body.conceptName || body.topic || "";
+  const lessonScope = isChapterScope(conceptName, body.topic) ? "chapter" : "topic";
+  const selectedConcept = lessonScope === "chapter" ? chapterName : conceptName || concepts[0] || chapterName;
+  const profile = lessonScope === "topic" ? buildTopicProfile({ board, subject, chapterName, conceptName: selectedConcept, concepts }) : undefined;
+  const fallback =
+    lessonScope === "chapter"
+      ? createFallbackChapterVisualLesson({ grade, board, subject, chapterNumber, chapterName, concepts })
+      : createFallbackVisualLesson({ grade, board, subject, chapterNumber, chapterName, conceptName: selectedConcept, profile: profile! });
 
   if (!process.env.OPENAI_API_KEY) {
     return Response.json(fallback);
@@ -89,9 +104,18 @@ Shape:
   "lessonTitle": string,
   "gradeLevel": string,
   "mode": "animated-visual-teacher",
+  "lessonScope": "topic" | "chapter",
+  "chapterTitle": string,
+  "chapterConcepts": [
+    {
+      "conceptNo": number,
+      "conceptTitle": string,
+      "scenes": []
+    }
+  ],
   "scenes": [
     {
-      "sceneType": "fraction-circle" | "fraction-bar" | "number-line" | "comparison-board" | "formula-board" | "table-board" | "force-arrows" | "motion-track" | "diagram-label" | "quiz-visual",
+      "sceneType": "fraction-circle" | "fraction-bar" | "number-line" | "comparison-board" | "formula-board" | "table-board" | "particle-motion-board" | "states-of-matter-board" | "heating-curve-board" | "evaporation-board" | "force-arrows" | "motion-track" | "diagram-label" | "quiz-visual",
       "title": string,
       "teacherScript": string,
       "steps": [
@@ -122,7 +146,9 @@ Shape:
     }
   ]
 }
-Create animated visual teacher scenes first, with slides only as fallback. Every scene must reveal the concept through visual motion: show, split, move, highlight, point, compare, or reveal one step at a time. Keep narration short and synchronized with each step. Use simple English, age-appropriate examples, and CBSE/NCERT terminology for Class 9 Maths. Avoid generic lines like "this is one part of the chapter." For maths, use circles, bars, number lines, balance scales, graphs, formulas, or tables wherever relevant. For science, use motion tracks, arrows, particles, circuits, or labeled diagrams wherever relevant.`,
+For lessonScope "topic", return 5 to 8 animated scenes for the selected topic only.
+For lessonScope "chapter", return chapterConcepts in correct teaching order, with at least one animated scene per concept, examples after concepts, quick checks after major sections, a final summary, and a chapter quiz. Also include a flattened scenes array containing all chapterConcepts scenes in order for compatibility.
+Create animated visual teacher scenes first, with slides only as fallback. Every scene must reveal the concept through visual motion: show, split, move, highlight, point, compare, or reveal one step at a time. Keep narration short and synchronized with each step. Use simple English, age-appropriate examples, and CBSE/NCERT terminology for Class 9 Maths and Science. Avoid generic lines like "this is one part of the chapter." For maths, use circles, bars, number lines, balance scales, graphs, formulas, or tables wherever relevant. For science, prefer particle-motion-board, states-of-matter-board, heating-curve-board, evaporation-board, motion tracks, arrows, and labeled diagrams. Avoid generic concept/cause/effect bubbles unless only supporting a better visual.`,
         },
         {
           role: "user",
@@ -131,13 +157,15 @@ Grade: ${grade}
 Board: ${board}
 Subject: ${subject}
 Chapter ${chapterNumber}: ${chapterName}
-Concept selection: ${conceptName}
+Lesson scope: ${lessonScope}
+Concept selection: ${lessonScope === "chapter" ? "All Concepts / full chapter" : selectedConcept}
 Chapter concepts: ${concepts.join(", ")}
 
 Topic hints:
-${createPromptHints(profile)}
+${lessonScope === "chapter" ? createChapterPromptHints(subject, chapterName, concepts) : createPromptHints(profile!)}
 
-Use 4 to 7 animated scenes. Each scene should have 3 to 6 steps. Include slides as fallback summaries, but scenes are the primary experience. Build the lesson for the selected concept only. Do not reuse examples from a different topic unless they genuinely explain this concept.`,
+${lessonScope === "chapter" ? "Teach the full chapter concept-by-concept. Do not collapse the chapter into one generic scene." : "Use 5 to 8 animated scenes. Build the lesson for the selected concept only and teach it deeply."}
+Each scene should have 3 to 6 steps. Include slides as fallback summaries, but animated scenes are the primary experience.`,
         },
       ],
     });
@@ -154,8 +182,44 @@ function getSessionFromCookie(cookie: string) {
   return { userId: values.kids_user_id || "demo-user", plan: ((values.kids_access_plan as PlanName | undefined) || "demo") };
 }
 
+function isChapterScope(conceptName?: string, topic?: string) {
+  const raw = `${conceptName || ""} ${topic || ""}`.trim().toLowerCase();
+  return !raw || raw.includes("all concepts") || raw === "all" || raw === "chapter" || raw.includes("full chapter");
+}
+
+function createChapterPromptHints(subject: string, chapterName: string, concepts: string[]) {
+  const context = `${subject} ${chapterName}`.toLowerCase();
+  const conceptList = concepts.length ? concepts : ["Introduction", "Key concepts", "Summary", "Quiz"];
+  const base = [
+    `- Lesson scope: full chapter, not a single topic.`,
+    `- Teach in this order: ${conceptList.join(" -> ")}.`,
+    `- Every concept needs at least one animated visual scene with step narration.`,
+    `- Add a final chapter summary and chapter quiz.`,
+  ];
+  if (/matter in our surroundings/.test(context)) {
+    base.push(
+      "- Use particle-motion-board for particles, space, motion, and attraction.",
+      "- Use states-of-matter-board for solid, liquid, and gas.",
+      "- Use heating-curve-board for ice -> water -> steam, melting, boiling, and latent heat.",
+      "- Use evaporation-board for evaporation, sublimation, surface area, wind, and temperature.",
+      "- Include stone, water, and air balloon as examples of matter.",
+    );
+  }
+  if (/number systems/.test(context)) {
+    base.push(
+      "- Include natural numbers, whole numbers, integers, rational numbers, irrational numbers, real numbers, number line, decimal expansion, and laws of exponents.",
+      "- Use number-line, table-board, comparison-board, and formula-board scenes.",
+      "- For Irrational Numbers, include p/q condition, non-terminating non-repeating decimals, examples √2, √3, √5, π, and non-examples 1/2, 3, 0.75, 0.333...",
+    );
+  }
+  return base.join("\n");
+}
+
 function normalizeVisualLesson(value: unknown, fallback: VisualLesson): VisualLesson {
   const input = Array.isArray(value) ? { title: fallback.title, gradeLevel: fallback.gradeLevel, slides: value } : asRecord(value);
+  const chapterConcepts = asArray(input.chapterConcepts)
+    .map((concept) => normalizeChapterConcept(concept))
+    .filter((concept): concept is VisualLessonChapterConcept => Boolean(concept));
   const scenes = asArray(input.scenes)
     .map((scene) => normalizeScene(scene))
     .filter((scene): scene is VisualLessonScene => Boolean(scene));
@@ -163,17 +227,36 @@ function normalizeVisualLesson(value: unknown, fallback: VisualLesson): VisualLe
     .map((slide) => normalizeSlide(slide))
     .filter((slide): slide is VisualLessonSlide => Boolean(slide));
 
-  const nextScenes = scenes.length ? scenes : fallback.scenes || [];
+  const isRequestedChapter = fallback.lessonScope === "chapter";
+  const flattenedChapterScenes = chapterConcepts.flatMap((concept) => concept.scenes);
+  const fallbackChapterConcepts = fallback.chapterConcepts || [];
+  const nextChapterConcepts = chapterConcepts.length ? chapterConcepts : fallbackChapterConcepts;
+  const nextChapterScenes = nextChapterConcepts.flatMap((concept) => concept.scenes);
+  const nextScenes = isRequestedChapter ? nextChapterScenes : flattenedChapterScenes.length ? flattenedChapterScenes : scenes.length ? scenes : fallback.scenes || [];
   const nextSlides = slides.length >= 3 ? slides : fallback.slides;
   if (!nextScenes.length && nextSlides.length < 3) return fallback;
   return {
     title: asString(input.title, fallback.title),
     lessonTitle: asString(input.lessonTitle, fallback.lessonTitle || fallback.title),
     gradeLevel: asString(input.gradeLevel, fallback.gradeLevel),
+    lessonScope: isRequestedChapter ? "chapter" : asString(input.lessonScope, fallback.lessonScope || "topic"),
+    chapterTitle: asString(input.chapterTitle, fallback.chapterTitle || fallback.title),
+    chapterConcepts: nextChapterConcepts,
     mode: asString(input.mode, fallback.mode || "animated-visual-teacher"),
     scenes: nextScenes,
     slides: nextSlides,
   };
+}
+
+function normalizeChapterConcept(value: unknown): VisualLessonChapterConcept | undefined {
+  const input = asRecord(value);
+  const conceptNo = Number(input.conceptNo);
+  const conceptTitle = asString(input.conceptTitle);
+  const scenes = asArray(input.scenes)
+    .map((scene) => normalizeScene(scene))
+    .filter((scene): scene is VisualLessonScene => Boolean(scene));
+  if (!Number.isFinite(conceptNo) || !conceptTitle || !scenes.length) return undefined;
+  return { conceptNo, conceptTitle, scenes };
 }
 
 function normalizeScene(value: unknown): VisualLessonScene | undefined {
@@ -295,10 +378,359 @@ function createFallbackVisualLesson({
     title: `Chapter ${chapterNumber}: ${chapterName} - ${conceptName}`,
     lessonTitle: `${profile.concept} Animated Lesson`,
     gradeLevel: `${grade} · ${subject} · ${board}`,
+    lessonScope: "topic",
+    chapterTitle: chapterName,
     mode: "animated-visual-teacher",
     scenes: profile.scenes,
     slides: buildTeacherSlides(profile),
   };
+}
+
+function createFallbackChapterVisualLesson({
+  grade,
+  board,
+  subject,
+  chapterNumber,
+  chapterName,
+  concepts,
+}: {
+  grade: string;
+  board: string;
+  subject: string;
+  chapterNumber: number;
+  chapterName: string;
+  concepts: string[];
+}): VisualLesson {
+  const chapterConcepts = buildChapterConcepts({ board, subject, chapterName, concepts });
+  const scenes = chapterConcepts.flatMap((concept) => concept.scenes);
+  return {
+    title: `Chapter ${chapterNumber}: ${chapterName}`,
+    lessonTitle: `${chapterName} Complete Animated Chapter`,
+    gradeLevel: `${grade} · ${subject} · ${board}`,
+    lessonScope: "chapter",
+    chapterTitle: chapterName,
+    chapterConcepts,
+    mode: "animated-visual-teacher",
+    scenes,
+    slides: buildChapterSlides(chapterName, chapterConcepts),
+  };
+}
+
+function buildChapterConcepts({
+  board,
+  subject,
+  chapterName,
+  concepts,
+}: {
+  board: string;
+  subject: string;
+  chapterName: string;
+  concepts: string[];
+}): VisualLessonChapterConcept[] {
+  const context = `${subject} ${chapterName}`.toLowerCase();
+  if (/science/.test(context) && /matter in our surroundings/.test(context)) return buildMatterChapterConcepts();
+  if (/math/.test(context) && /number systems/.test(context)) return buildNumberSystemsChapterConcepts();
+
+  const conceptNames = concepts.length ? concepts : ["Introduction", "Key terms", "Examples", "Practice"];
+  const mainConcepts = conceptNames.map((conceptTitle, index) => {
+    const profile = buildTopicProfile({ board, subject, chapterName, conceptName: conceptTitle, concepts: conceptNames });
+    return {
+      conceptNo: index + 1,
+      conceptTitle,
+      scenes: profile.scenes.slice(0, 1),
+    };
+  });
+  return [
+    ...mainConcepts,
+    {
+      conceptNo: mainConcepts.length + 1,
+      conceptTitle: "Chapter summary",
+      scenes: [summaryScene(chapterName, conceptNames)],
+    },
+    {
+      conceptNo: mainConcepts.length + 2,
+      conceptTitle: "Chapter quiz",
+      scenes: [chapterQuizScene(chapterName, conceptNames[0] || chapterName)],
+    },
+  ];
+}
+
+function buildMatterChapterConcepts(): VisualLessonChapterConcept[] {
+  return [
+    conceptGroup(1, "Meaning of matter", {
+      sceneType: "states-of-matter-board",
+      title: "Stone, water, and air are all matter",
+      teacherScript: "Matter is anything that has mass and occupies space. We can see solids and liquids easily, and air also occupies space.",
+      steps: [
+        { action: "showSolid", narration: "A stone is matter because it has mass and takes up space.", visual: { activeState: "solid", solidLabel: "stone", liquidLabel: "water", gasLabel: "air balloon" } },
+        { action: "showLiquid", narration: "Water is also matter. It has mass and takes the shape of its container.", visual: { activeState: "liquid" } },
+        { action: "showGas", narration: "Air inside a balloon is matter too. It fills space even though we cannot see it directly.", visual: { activeState: "gas" } },
+      ],
+    }),
+    conceptGroup(2, "Matter is made of particles", {
+      sceneType: "particle-motion-board",
+      title: "Zoom into matter",
+      teacherScript: "If we imagine zooming into matter, we find tiny particles. These particles make up solids, liquids, and gases.",
+      steps: [
+        { action: "showObject", narration: "Start with a small piece of matter.", visual: { state: "solid", label: "matter", particles: 12, motion: "still" } },
+        { action: "zoomIn", narration: "Now zoom in. The object is made of tiny particles.", visual: { particles: 24, label: "tiny particles", showBonds: true } },
+        { action: "connectIdea", narration: "Different arrangements of particles create different states of matter.", visual: { state: "liquid", particles: 24, motion: "slow" } },
+      ],
+    }),
+    conceptGroup(3, "Particles have space between them", {
+      sceneType: "particle-motion-board",
+      title: "There is space between particles",
+      teacherScript: "Particles are not one solid block. There is space between them, and smaller particles can enter those spaces.",
+      steps: [
+        { action: "showSpaces", narration: "Look at the gaps between particles.", visual: { state: "liquid", particles: 18, spacing: "medium", label: "spaces between particles" } },
+        { action: "addSugar", narration: "When sugar dissolves in water, sugar particles fit into spaces between water particles.", visual: { state: "liquid", particles: 24, guestParticles: 6, label: "sugar in water" } },
+        { action: "explain", narration: "This is why the water level does not rise much after dissolving a little sugar.", visual: { state: "liquid", particles: 24, guestParticles: 10 } },
+      ],
+    }),
+    conceptGroup(4, "Particles are continuously moving", {
+      sceneType: "particle-motion-board",
+      title: "Particles keep moving",
+      teacherScript: "Particles of matter are continuously moving. Heating makes them move faster.",
+      steps: [
+        { action: "slowMotion", narration: "In a cooler liquid, particles move slowly.", visual: { state: "liquid", particles: 18, motion: "slow", label: "slow motion" } },
+        { action: "heat", narration: "When we heat the matter, particles gain energy.", visual: { state: "liquid", particles: 18, motion: "medium", temperature: "warmer" } },
+        { action: "fastMotion", narration: "With more energy, particles move faster.", visual: { state: "gas", particles: 18, motion: "fast", label: "fast motion" } },
+      ],
+    }),
+    conceptGroup(5, "Particles attract each other", {
+      sceneType: "particle-motion-board",
+      title: "Attraction between particles",
+      teacherScript: "Particles attract one another. The strength of attraction is different in solids, liquids, and gases.",
+      steps: [
+        { action: "strongAttraction", narration: "In solids, attraction is strong, so particles stay close.", visual: { state: "solid", particles: 16, attraction: "strong", showBonds: true } },
+        { action: "mediumAttraction", narration: "In liquids, attraction is weaker, so particles can slide around.", visual: { state: "liquid", particles: 16, attraction: "medium" } },
+        { action: "weakAttraction", narration: "In gases, attraction is very weak, so particles move far apart.", visual: { state: "gas", particles: 16, attraction: "weak" } },
+      ],
+    }),
+    conceptGroup(6, "States of matter: solid, liquid, gas", {
+      sceneType: "states-of-matter-board",
+      title: "Compare solid, liquid, and gas",
+      teacherScript: "The three common states of matter differ in shape, volume, particle space, and particle motion.",
+      steps: [
+        { action: "solid", narration: "A solid has fixed shape and fixed volume because particles are tightly packed.", visual: { activeState: "solid", solidLabel: "solid: fixed shape" } },
+        { action: "liquid", narration: "A liquid has fixed volume but takes the shape of the container.", visual: { activeState: "liquid", liquidLabel: "liquid: flows" } },
+        { action: "gas", narration: "A gas has no fixed shape or volume. It spreads to fill the container.", visual: { activeState: "gas", gasLabel: "gas: spreads" } },
+      ],
+      studentQuestion: {
+        question: "Which state has particles far apart and moving fast?",
+        options: ["Solid", "Liquid", "Gas", "All are same"],
+        answer: "Gas",
+        explanation: "Gas particles are far apart and move quickly.",
+      },
+    }),
+    conceptGroup(7, "Change of state", {
+      sceneType: "heating-curve-board",
+      title: "Ice becomes water, then steam",
+      teacherScript: "Matter can change state when heat energy changes particle motion and attraction.",
+      steps: [
+        { action: "ice", narration: "Ice is solid water. Its particles are locked in place.", visual: { phase: "ice", activeIndex: 0 } },
+        { action: "water", narration: "After melting, particles can slide, so ice becomes liquid water.", visual: { phase: "water", activeIndex: 1 } },
+        { action: "steam", narration: "After boiling, particles move far apart, so water becomes steam.", visual: { phase: "steam", activeIndex: 2 } },
+      ],
+    }),
+    conceptGroup(8, "Melting, boiling, evaporation", {
+      sceneType: "heating-curve-board",
+      title: "Three ways water changes",
+      teacherScript: "Melting changes solid to liquid. Boiling and evaporation change liquid to gas, but they happen differently.",
+      steps: [
+        { action: "melting", narration: "Melting is solid to liquid, like ice changing into water.", visual: { phase: "melting", activeIndex: 1, labels: ["melting point"] } },
+        { action: "boiling", narration: "Boiling happens throughout the liquid at its boiling point.", visual: { phase: "boiling", activeIndex: 2, labels: ["boiling point"] } },
+        { action: "evaporation", narration: "Evaporation happens at the surface, even below boiling point.", visual: { phase: "evaporation", activeIndex: 3, labels: ["surface change"] } },
+      ],
+    }),
+    conceptGroup(9, "Latent heat", {
+      sceneType: "heating-curve-board",
+      title: "Heat can hide during state change",
+      teacherScript: "During a change of state, heat energy is used to change the state, so temperature can stay constant.",
+      steps: [
+        { action: "addHeat", narration: "We keep adding heat to ice at its melting point.", visual: { phase: "melting", activeIndex: 1, plateau: true } },
+        { action: "temperatureStays", narration: "The temperature stays constant during melting.", visual: { phase: "melting", activeIndex: 1, label: "temperature constant" } },
+        { action: "latentHeat", narration: "This hidden heat used in changing state is called latent heat.", visual: { phase: "latent heat", activeIndex: 1, label: "latent heat" } },
+      ],
+    }),
+    conceptGroup(10, "Sublimation", {
+      sceneType: "evaporation-board",
+      title: "Solid directly becomes vapour",
+      teacherScript: "Sublimation is the change from solid directly to gas without becoming liquid.",
+      steps: [
+        { action: "showSolid", narration: "Start with camphor or dry ice as a solid.", visual: { mode: "sublimation", solidLabel: "camphor", vaporLabel: "vapour", vaporParticles: 2 } },
+        { action: "vapour", narration: "On heating, it directly forms vapour.", visual: { mode: "sublimation", vaporParticles: 8 } },
+        { action: "noLiquid", narration: "Notice that there is no liquid stage in between.", visual: { mode: "sublimation", vaporParticles: 12, label: "solid to gas" } },
+      ],
+    }),
+    conceptGroup(11, "Factors affecting evaporation", {
+      sceneType: "evaporation-board",
+      title: "What makes evaporation faster?",
+      teacherScript: "Evaporation becomes faster with higher temperature, larger surface area, lower humidity, and more wind speed.",
+      steps: [
+        { action: "temperature", narration: "Higher temperature gives surface particles more energy to escape.", visual: { mode: "evaporation", heat: true, vaporParticles: 5, factor: "higher temperature" } },
+        { action: "surfaceArea", narration: "Larger surface area lets more particles escape at the same time.", visual: { mode: "evaporation", wideSurface: true, vaporParticles: 9, factor: "larger surface area" } },
+        { action: "wind", narration: "Wind carries vapour away, so more particles can evaporate.", visual: { mode: "evaporation", wind: true, vaporParticles: 12, factor: "more wind speed" } },
+      ],
+    }),
+    conceptGroup(12, "Chapter summary", summaryScene("Matter in Our Surroundings", ["matter has mass and occupies space", "particles have space, motion, and attraction", "states change with heat", "evaporation depends on conditions"])),
+    conceptGroup(13, "Chapter quiz", chapterQuizScene("Matter in Our Surroundings", "gas particles")),
+  ];
+}
+
+function buildNumberSystemsChapterConcepts(): VisualLessonChapterConcept[] {
+  return [
+    conceptGroup(1, "Natural numbers", numberSetScene("Natural numbers", "Natural numbers are counting numbers.", ["1", "2", "3", "4"], "Starts from 1")),
+    conceptGroup(2, "Whole numbers", numberSetScene("Whole numbers", "Whole numbers include zero along with natural numbers.", ["0", "1", "2", "3"], "Natural numbers plus 0")),
+    conceptGroup(3, "Integers", {
+      sceneType: "number-line",
+      title: "Integers on both sides of zero",
+      teacherScript: "Integers include negative numbers, zero, and positive numbers.",
+      steps: [
+        { action: "showZero", narration: "Put zero at the center of the number line.", visual: { min: -4, max: 4, markers: [{ label: "0", value: 0 }] } },
+        { action: "showPositive", narration: "Positive integers go to the right.", visual: { markers: [{ label: "1", value: 1 }, { label: "2", value: 2 }, { label: "3", value: 3 }] } },
+        { action: "showNegative", narration: "Negative integers go to the left.", visual: { markers: [{ label: "-1", value: -1 }, { label: "-2", value: -2 }, { label: "-3", value: -3 }] } },
+      ],
+    }),
+    conceptGroup(4, "Rational numbers", {
+      sceneType: "formula-board",
+      title: "Rational numbers fit p/q",
+      teacherScript: "A rational number can be written as p over q, where p and q are integers and q is not zero.",
+      steps: [
+        { action: "writeForm", narration: "Write the form p over q.", visual: { formula: "p / q", lines: ["p and q are integers", "q is not 0"] } },
+        { action: "examples", narration: "Examples are 1/2, 3, 0.75, and 0.333 repeating.", visual: { lines: ["1/2", "3 = 3/1", "0.75 = 3/4", "0.333... = 1/3"] } },
+        { action: "test", narration: "If it can be written as p over q, it is rational.", visual: { formula: "p/q test" } },
+      ],
+    }),
+    conceptGroup(5, "Irrational numbers", ...buildIrrationalScenes().slice(0, 1)),
+    conceptGroup(6, "Real numbers", {
+      sceneType: "comparison-board",
+      title: "Real numbers include rational and irrational",
+      teacherScript: "Real numbers are all numbers that can be placed on the number line.",
+      steps: [
+        { action: "rational", narration: "Rational numbers are one part of real numbers.", visual: { leftLabel: "Rational", leftItems: ["1/2", "3", "0.75"], leftValue: 0.7 } },
+        { action: "irrational", narration: "Irrational numbers are also real numbers.", visual: { rightLabel: "Irrational", rightItems: ["√2", "π", "√5"], rightValue: 0.7 } },
+        { action: "combine", narration: "Together they form the real number system.", visual: { comparison: "Rational + Irrational = Real numbers" } },
+      ],
+    }),
+    conceptGroup(7, "Number line representation", {
+      sceneType: "number-line",
+      title: "Every real number has a point",
+      teacherScript: "Natural numbers, integers, rational numbers, and irrational numbers can all be represented on the number line.",
+      steps: [
+        { action: "integers", narration: "First mark integers like 0, 1, and 2.", visual: { min: 0, max: 3, markers: [{ label: "0", value: 0 }, { label: "1", value: 1 }, { label: "2", value: 2 }] } },
+        { action: "rational", narration: "Now mark 1/2 between 0 and 1.", visual: { markers: [{ label: "1/2", value: 0.5 }] } },
+        { action: "irrational", narration: "Now mark √2 around 1.414.", visual: { markers: [{ label: "√2", value: 1.414 }] } },
+      ],
+    }),
+    conceptGroup(8, "Decimal expansion", {
+      sceneType: "table-board",
+      title: "Decimals reveal the type",
+      teacherScript: "Terminating and repeating decimals are rational. Non-terminating, non-repeating decimals are irrational.",
+      steps: [
+        { action: "terminating", narration: "0.5 terminates, so it is rational.", visual: { headers: ["Number", "Decimal", "Type"], rows: [["1/2", "0.5", "Rational"]] } },
+        { action: "repeating", narration: "0.333... repeats, so it is rational.", visual: { rows: [["1/3", "0.333...", "Rational"]] } },
+        { action: "nonRepeating", narration: "1.414213... neither ends nor repeats, so √2 is irrational.", visual: { rows: [["√2", "1.414213...", "Irrational"]] } },
+      ],
+    }),
+    conceptGroup(9, "Laws of exponents", {
+      sceneType: "formula-board",
+      title: "Exponent laws for real numbers",
+      teacherScript: "Exponent laws help us simplify powers when the base is a non-zero real number.",
+      steps: [
+        { action: "product", narration: "When bases are same, add powers: a to m times a to n equals a to m plus n.", visual: { formula: "a^m × a^n = a^(m+n)", lines: ["same base", "add powers"] } },
+        { action: "quotient", narration: "When dividing same bases, subtract powers.", visual: { formula: "a^m / a^n = a^(m-n)", lines: ["same base", "subtract powers"] } },
+        { action: "power", narration: "A power raised to another power means multiply the powers.", visual: { formula: "(a^m)^n = a^(mn)", lines: ["power of a power", "multiply powers"] } },
+      ],
+    }),
+    conceptGroup(10, "Chapter summary", summaryScene("Number Systems", ["natural, whole, integers", "rational numbers fit p/q", "irrational numbers do not fit p/q", "all are real numbers on number line", "decimal expansion identifies type"])),
+    conceptGroup(11, "Chapter quiz", chapterQuizScene("Number Systems", "irrational numbers")),
+  ];
+}
+
+function conceptGroup(conceptNo: number, conceptTitle: string, ...scenes: VisualLessonScene[]): VisualLessonChapterConcept {
+  return { conceptNo, conceptTitle, scenes };
+}
+
+function numberSetScene(title: string, definition: string, examples: string[], clue: string): VisualLessonScene {
+  return {
+    sceneType: "table-board",
+    title,
+    teacherScript: definition,
+    steps: [
+      { action: "definition", narration: definition, visual: { headers: ["Set", "Examples", "Teacher clue"], rows: [[title, examples.join(", "), clue]] } },
+      { action: "examples", narration: `Examples are ${examples.join(", ")}.`, visual: { rows: [[title, examples.join(", "), clue]] } },
+      { action: "nonExample", narration: "Check the boundary by asking what is not included.", visual: { rows: [[title, examples.join(", "), clue], ["Boundary", title === "Natural numbers" ? "0 is not natural in NCERT Class 9" : "negative fractions are not integers", "Know the first missing case"]] } },
+    ],
+  };
+}
+
+function summaryScene(chapterName: string, points: string[]): VisualLessonScene {
+  return {
+    sceneType: "table-board",
+    title: `${chapterName} summary`,
+    teacherScript: "Let us collect the full chapter on one teacher board before the quiz.",
+    steps: points.map((point, index) => ({
+      action: `summaryPoint${index + 1}`,
+      narration: point,
+      visual: {
+        headers: ["No.", "Chapter idea"],
+        rows: [[String(index + 1), point]],
+      },
+    })),
+  };
+}
+
+function chapterQuizScene(chapterName: string, answer: string): VisualLessonScene {
+  return {
+    sceneType: "quiz-visual",
+    title: `${chapterName} chapter quiz`,
+    teacherScript: "Now answer one chapter-level question using the visual lesson.",
+    steps: [{ action: "showQuestion", narration: "Try this quick check before moving ahead.", visual: { question: `Which idea best matches ${answer}?` } }],
+    studentQuestion: {
+      question: `Which idea best matches ${answer}?`,
+      options: [answer, "A memorized heading only", "A random example", "None of these"],
+      answer,
+      explanation: `The correct answer is ${answer} because it matches the chapter rule taught on the board.`,
+    },
+  };
+}
+
+function buildChapterSlides(chapterName: string, chapterConcepts: VisualLessonChapterConcept[]): VisualLessonSlide[] {
+  return [
+    {
+      slideType: "hook",
+      title: `Start ${chapterName}`,
+      teacherScript: `We will learn ${chapterName} concept by concept, with visuals and quick checks.`,
+      visualType: "summary-card",
+      visualData: { keyTakeaways: chapterConcepts.slice(0, 5).map((concept) => concept.conceptTitle) },
+      keyPoints: ["Learn in order.", "Watch each visual.", "Answer quick checks."],
+    },
+    {
+      slideType: "summary",
+      title: "Chapter path",
+      teacherScript: "This is the full route for the chapter.",
+      visualType: "comparison-table",
+      visualData: {
+        headers: ["No.", "Concept"],
+        rows: chapterConcepts.map((concept) => [String(concept.conceptNo), concept.conceptTitle]),
+      },
+      keyPoints: chapterConcepts.map((concept) => concept.conceptTitle),
+    },
+    {
+      slideType: "quick-check",
+      title: "Chapter quiz",
+      teacherScript: "Use the animated board first, then answer the chapter quiz.",
+      visualType: "quiz-card",
+      visualData: {
+        question: `What should you do first when learning ${chapterName}?`,
+        options: ["Watch the visual steps", "Skip examples", "Memorize only headings", "Avoid practice"],
+        correctAnswer: "Watch the visual steps",
+        explanation: "ConceptKid teaches by visual steps first, then quiz and practice.",
+      },
+      keyPoints: ["Visual first.", "Practice next.", "Quiz after understanding."],
+    },
+  ];
 }
 
 function buildTeacherSlides(profile: TopicProfile): VisualLessonSlide[] {
@@ -1052,6 +1484,16 @@ function buildFractionScenes(): VisualLessonScene[] {
 function buildIrrationalScenes(): VisualLessonScene[] {
   return [
     {
+      sceneType: "formula-board",
+      title: "Definition of irrational numbers",
+      teacherScript: "An irrational number cannot be written as p over q, where p and q are integers and q is not zero.",
+      steps: [
+        { action: "writeRationalForm", narration: "First write the rational number form: p over q.", visual: { formula: "p / q", lines: ["p and q are integers", "q is not 0"] } },
+        { action: "crossOut", narration: "An irrational number cannot fit this p over q form.", visual: { formula: "not p / q", lines: ["√2", "√3", "√5", "π"] } },
+        { action: "teacherRule", narration: "So the teacher rule is: not expressible as p over q.", visual: { formula: "Irrational = cannot be written as p/q", lines: ["decimal never ends", "decimal never repeats"] } },
+      ],
+    },
+    {
       sceneType: "comparison-board",
       title: "Can every number fit p/q?",
       teacherScript: "Some numbers can be written as p over q. Some real numbers cannot fit that fraction form.",
@@ -1059,6 +1501,16 @@ function buildIrrationalScenes(): VisualLessonScene[] {
         { action: "showRationalSide", narration: "Numbers like 1/2, 3, and 0.75 can be written as p/q.", visual: { leftLabel: "Fits p/q", leftItems: ["1/2", "3", "0.75"], leftValue: 0.65 } },
         { action: "showIrrationalSide", narration: "Numbers like √2, √3, and pi cannot be written as p/q.", visual: { rightLabel: "Does not fit p/q", rightItems: ["√2", "√3", "π"], rightValue: 0.95 } },
         { action: "highlightDifference", narration: "This difference gives us rational and irrational numbers.", visual: { comparison: "p/q test", highlightWinner: "right" } },
+      ],
+    },
+    {
+      sceneType: "table-board",
+      title: "Examples and non-examples",
+      teacherScript: "A good way to learn irrational numbers is to compare examples with non-examples.",
+      steps: [
+        { action: "showNonExamples", narration: "1/2, 3, 0.75, and 0.333 repeating are not irrational because they are rational.", visual: { headers: ["Number", "Why not irrational?"], rows: [["1/2", "Already p/q"], ["3", "3/1"], ["0.75", "3/4"], ["0.333...", "1/3"]] } },
+        { action: "showExamples", narration: "√2, √3, √5, and pi are irrational.", visual: { rows: [["√2", "not p/q"], ["√3", "not p/q"], ["√5", "not p/q"], ["π", "not p/q"]] } },
+        { action: "teacherCheck", narration: "Always check the p/q condition before deciding.", visual: { rows: [["Teacher check", "Can it be written as p/q?"]] } },
       ],
     },
     {
@@ -1079,6 +1531,16 @@ function buildIrrationalScenes(): VisualLessonScene[] {
         { action: "showTerminating", narration: "0.5 ends, so 1/2 is rational.", visual: { headers: ["Number", "Decimal", "Type"], rows: [["1/2", "0.5", "Rational"]] } },
         { action: "showRepeating", narration: "0.333... repeats, so 1/3 is rational.", visual: { rows: [["1/3", "0.333...", "Rational"]] } },
         { action: "showNonRepeating", narration: "1.414213... does not end or repeat, so √2 is irrational.", visual: { rows: [["√2", "1.414213...", "Irrational"]] } },
+      ],
+    },
+    {
+      sceneType: "comparison-board",
+      title: "Common mistake: non-terminating is not enough",
+      teacherScript: "A common mistake is thinking every non-terminating decimal is irrational. Repeating decimals are rational.",
+      steps: [
+        { action: "repeatDecimal", narration: "0.333 repeating never ends, but it repeats, so it is rational.", visual: { leftLabel: "0.333...", leftItems: ["repeats", "1/3", "rational"], leftValue: 0.6 } },
+        { action: "nonRepeatDecimal", narration: "1.414213... never ends and does not repeat, so √2 is irrational.", visual: { rightLabel: "√2", rightItems: ["never ends", "never repeats", "irrational"], rightValue: 0.9 } },
+        { action: "fixMistake", narration: "The correct test is non-terminating and non-repeating.", visual: { comparison: "Irrational decimals: non-terminating + non-repeating", highlightWinner: "right" } },
       ],
     },
     {
@@ -1122,6 +1584,31 @@ function buildEquationScenes(concept: string): VisualLessonScene[] {
 
 function buildScienceScenes(concept: string, chapterName: string): VisualLessonScene[] {
   const context = `${concept} ${chapterName}`.toLowerCase();
+  if (/matter in our surroundings|matter|particle|state|evaporation|sublimation|latent|boiling|melting/.test(context)) {
+    if (/state|solid|liquid|gas/.test(context)) {
+      return [
+        buildMatterChapterConcepts()[5].scenes[0],
+        buildMatterChapterConcepts()[6].scenes[0],
+        buildMatterChapterConcepts()[11].scenes[0],
+      ];
+    }
+    if (/evaporation|sublimation|latent|boiling|melting|change/.test(context)) {
+      return [
+        buildMatterChapterConcepts()[6].scenes[0],
+        buildMatterChapterConcepts()[7].scenes[0],
+        buildMatterChapterConcepts()[8].scenes[0],
+        buildMatterChapterConcepts()[9].scenes[0],
+        buildMatterChapterConcepts()[10].scenes[0],
+      ];
+    }
+    return [
+      buildMatterChapterConcepts()[0].scenes[0],
+      buildMatterChapterConcepts()[1].scenes[0],
+      buildMatterChapterConcepts()[2].scenes[0],
+      buildMatterChapterConcepts()[3].scenes[0],
+      buildMatterChapterConcepts()[4].scenes[0],
+    ];
+  }
   if (/inertia|motion/.test(context)) {
     return [
       {

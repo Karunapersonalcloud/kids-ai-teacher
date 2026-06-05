@@ -365,6 +365,19 @@ model DiagnosticResult {
   weakAreas             Json?
   strongAreas           Json?
   recommendedStartLevel String?
+  actualLearningLevel   String?
+  gradeReadinessPercentage Float?
+  recommendedStartingPoint String?
+  foundationRecoveryRequired Boolean @default(false)
+  readingLevel          String?
+  writingLevel          String?
+  numberRecognitionLevel String?
+  arithmeticLevel       String?
+  subjectFoundationLevel String?
+  classLevelReadiness   String?
+  learningSpeed         String?
+  mistakePatterns       Json?
+  domainLevels          Json?
   learningPlan          Json?
   riskLevel             String?
   answers               Json?
@@ -498,4 +511,112 @@ model ExamPlan {
   @@index([userId])
   @@index([childId])
   @@index([examDate])
+}
+
+model LearningPath {
+  id                         String   @id @default(cuid())
+  userId                     String?
+  childId                    String
+  enrolledGrade              String
+  actualLearningLevel        String
+  currentPhase               String
+  recommendedStartingPoint   String
+  gradeReadinessPercentage   Float    @default(0)
+  foundationRecoveryRequired Boolean  @default(false)
+  targetScore                Float    @default(95)
+  dailyAvailableMinutes      Int      @default(45)
+  status                     String   @default("active")
+  foundationTopics           Json?
+  bridgeTopics               Json?
+  classSyllabusTopics        Json?
+  revisionTopics             Json?
+  mockTestSchedule           Json?
+  weakTopicRepairLoop        Json?
+  todayPlan                  Json?
+  weeklyPlan                 Json?
+  metadata                   Json?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([childId])
+  @@index([status])
+}
+
+model TopicMastery {
+  id                  String    @id @default(cuid())
+  userId              String?
+  childId             String
+  subject             String
+  chapter             String?
+  topic               String
+  status              String    @default("Not started")
+  diagnosticScore     Float?
+  quizScore           Float?
+  retryCount          Int       @default(0)
+  timeSpentMinutes    Int       @default(0)
+  mistakesRepeated    Json?
+  revisionScore       Float?
+  mockTestScore       Float?
+  masteryScore        Float     @default(0)
+  nextAction          String?
+  prerequisiteTopic   String?
+  lastPracticedAt     DateTime?
+  examReadyAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([childId, subject, chapter, topic])
+  @@index([userId])
+  @@index([childId, subject])
+  @@index([status])
+}
+
+model PracticeAttempt {
+  id               String   @id @default(cuid())
+  userId           String?
+  childId          String
+  subject          String
+  chapter          String?
+  topic            String
+  attemptType      String
+  score            Float
+  total            Float
+  percentage       Float
+  timeSpentMinutes Int      @default(0)
+  retryCount       Int      @default(0)
+  mistakes         Json?
+  actionTaken      String?
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
+  @@index([childId, subject, topic])
+  @@index([createdAt])
+}
+
+model ExamReadinessPlan {
+  id                         String    @id @default(cuid())
+  userId                     String?
+  childId                    String
+  examName                   String    @default("Annual Exam")
+  targetScore                Float     @default(95)
+  examDate                   DateTime?
+  currentReadinessPercentage Float     @default(0)
+  predictedScore             Float     @default(0)
+  dailyAvailableMinutes      Int       @default(45)
+  syllabusSize               Int       @default(0)
+  weakTopics                 Json?
+  topicsBlockingTarget       Json?
+  dailyStudyPlan             Json?
+  weeklyRevisionPlan         Json?
+  mockTestSchedule           Json?
+  readinessBySubject         Json?
+  status                     String    @default("active")
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([childId])
+  @@index([examDate])
+  @@index([status])
 }
