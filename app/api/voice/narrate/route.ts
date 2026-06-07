@@ -1,5 +1,7 @@
+import { createHash } from "crypto";
 import { getRequestAccess } from "@/lib/request-access";
-import { createNeuralNarration, normalizeTeacherNarration, VoiceLimitError, type NarrationRequest } from "@/lib/voice/neural-voice";
+import { createNeuralNarration, VoiceLimitError, type NarrationRequest } from "@/lib/voice/neural-voice";
+import { NARRATION_QUALITY_VERSION, sanitizeTeacherNarration } from "@/lib/voice/narration-sanitizer";
 import { voiceConfig } from "@/lib/voice/voice-config";
 import {
   isIndianVoiceLanguage,
@@ -28,12 +30,13 @@ export async function POST(request: Request) {
     }
 
     const raw = (await request.json()) as Partial<NarrationRequest>;
-    const text = typeof raw.text === "string" ? normalizeTeacherNarration(raw.text.replace(/\s+/g, " ").trim()) : "";
+    const text = typeof raw.text === "string" ? sanitizeTeacherNarration(raw.text, { language: isIndianVoiceLanguage(raw.language) ? raw.language : voiceConfig.defaultLanguage }) : "";
     if (!text) return fallbackResponse("Teacher narration text is required.", 400);
     if (text.length > voiceConfig.maxNarrationCharacters) {
       return fallbackResponse(`Narration is limited to ${voiceConfig.maxNarrationCharacters} characters per beat.`, 400);
     }
 
+    const cacheKey = `${NARRATION_QUALITY_VERSION}:${createHash("sha256").update(text).digest("hex")}`;
     const input: NarrationRequest = {
       text,
       lessonId: safeIdentifier(raw.lessonId, "lesson"),
@@ -50,7 +53,7 @@ export async function POST(request: Request) {
       speed: isVoiceSpeed(raw.speed) ? raw.speed : normalizeNumericSpeed(raw.speed),
       tone: raw.tone === "calm" ? "calm" : "neutral",
       volume: typeof raw.volume === "number" ? Math.max(0.35, Math.min(1, raw.volume)) : 0.75,
-      cacheKey: safeIdentifier(raw.cacheKey, ""),
+      cacheKey: cacheKey,
     };
 
     const narration = await createNeuralNarration(input, {
@@ -82,7 +85,8 @@ function fallbackResponse(error: string, status = 200) {
   return Response.json(
     {
       ok: false,
-      fallback: "browser",
+      provider: voiceConfig.provider,
+      fallback: voiceConfig.provider === "browser-fallback" ? "browser" : "browser",
       error,
     },
     { status },

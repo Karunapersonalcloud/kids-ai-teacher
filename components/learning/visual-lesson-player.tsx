@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AlertTriangle, ArrowLeft, ArrowRight, BookOpen, Box, Check, CheckCircle2, CircleHelp, Clock3, Cloud, Droplets, Film, Gauge, Lightbulb, Maximize2, Pause, Play, PlusCircle, RefreshCw, RotateCcw, Settings, SkipBack, SkipForward, Sparkles, Volume2, Weight } from "lucide-react";
 import { AudioNarrationControls } from "./audio-narration-controls";
+import { NARRATION_QUALITY_VERSION, sanitizeTeacherNarration } from "@/lib/voice/narration-sanitizer";
 import type { LearningChapter } from "@/lib/learning/chapter-catalog";
 import type { VisualLesson, VisualLessonScene, VisualLessonSlide, VisualLessonStep } from "@/lib/types";
 import {
@@ -274,7 +275,7 @@ function AnimatedVisualTeacher({
   const [showTeacherNotes, setShowTeacherNotes] = useState(true);
   const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false);
   const [audioWarning, setAudioWarning] = useState("");
-  const [voiceStatus, setVoiceStatus] = useState<{ provider: string; voiceName: string; cached: boolean } | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<{ provider: string; voiceName: string; cached: boolean; fallback?: boolean } | null>(null);
   const [spokenNarration, setSpokenNarration] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const narrationRequestRef = useRef<AbortController | null>(null);
@@ -290,7 +291,7 @@ function AnimatedVisualTeacher({
   const totalSteps = scenes.reduce((sum, item) => sum + getPlayableSteps(item).length, 0);
   const completedSteps = scenes.slice(0, safeSceneIndex).reduce((sum, item) => sum + getPlayableSteps(item).length, 0) + safeStepIndex + 1;
   const progress = Math.round((completedSteps / Math.max(1, totalSteps)) * 100);
-  const narrationText = narrationForDepth(step, scene, voicePreferences.explanationDepth);
+  const narrationText = sanitizeTeacherNarration(narrationForDepth(step, scene, voicePreferences.explanationDepth), { language: voicePreferences.language });
   const lessonId = useMemo(
     () => toVoiceIdentifier(`${lesson.lessonTitle || lesson.title}-${grade}-${subject}-${chapter.number}`),
     [chapter.number, grade, lesson.lessonTitle, lesson.title, subject],
@@ -340,12 +341,13 @@ function AnimatedVisualTeacher({
     narrationRequestRef.current = controller;
 
     try {
+      const sanitizedText = sanitizeTeacherNarration(narrationText, { language: voicePreferences.language });
       const response = await fetch("/api/voice/narrate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
-          text: toNaturalNarration(narrationText),
+          text: sanitizedText,
           lessonId,
           sceneId: scene.sceneId || `scene-${safeSceneIndex + 1}`,
           beatId: step.stepId || `beat-${safeStepIndex + 1}`,
@@ -353,7 +355,7 @@ function AnimatedVisualTeacher({
           voiceStyle: voicePreferences.voiceStyle,
           languageMode: voicePreferences.languageMode,
           speed: voicePreferences.speed,
-          cacheKey: `${lessonId}:${safeSceneIndex}:${safeStepIndex}`,
+          cacheKey: `${NARRATION_QUALITY_VERSION}:${lessonId}:${safeSceneIndex}:${safeStepIndex}`,
         }),
       });
       const data = (await response.json()) as {
@@ -363,19 +365,21 @@ function AnimatedVisualTeacher({
         voiceName?: string;
         cached?: boolean;
         narrationText?: string;
+        fallback?: string;
       };
       if (runId !== narrationRunRef.current || controller.signal.aborted) return;
       if (!data.ok || !data.audioUrl) {
-        playBrowserFallback(data.narrationText || narrationText);
+        playBrowserFallback(data.narrationText || sanitizedText);
         return;
       }
 
-      const localizedNarration = data.narrationText || narrationText;
+      const localizedNarration = sanitizeTeacherNarration(data.narrationText || sanitizedText, { language: voicePreferences.language });
       setSpokenNarration(localizedNarration);
       setVoiceStatus({
         provider: data.provider || "neural",
         voiceName: data.voiceName || "Teacher voice",
         cached: Boolean(data.cached),
+        fallback: data.fallback === "browser",
       });
       const audio = new Audio(data.audioUrl);
       audioRef.current = audio;
@@ -393,8 +397,8 @@ function AnimatedVisualTeacher({
   }
 
   function playBrowserFallback(text: string) {
-    setVoiceStatus(null);
-    setAudioWarning("Using device voice temporarily. Neural regional teacher voice is unavailable.");
+    setVoiceStatus({ provider: "browser-fallback", voiceName: "Device voice", cached: false, fallback: true });
+    setAudioWarning("Device voice is active. Neural teacher voice is not configured or unavailable.");
     if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
       if (autoPlayRef.current) {
         fallbackTimer.current = window.setTimeout(
@@ -404,7 +408,7 @@ function AnimatedVisualTeacher({
       }
       return;
     }
-    const utterance = new SpeechSynthesisUtterance(toNaturalNarration(text));
+    const utterance = new SpeechSynthesisUtterance(sanitizeTeacherNarration(text, { language: voicePreferences.language }));
     const browserVoices = window.speechSynthesis.getVoices();
     const selectedVoice = pickPreferredVoice(browserVoices, voicePreferences.language);
     utterance.lang = selectedVoice?.lang || voicePreferences.language;
@@ -756,14 +760,19 @@ function AnimatedVisualTeacher({
                   {step.highlight ? <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">Focus: {step.highlight}</span> : null}
                 </div>
                 <p className="mt-3 text-xs font-semibold text-slate-500">
-                  {voiceStatus ? `Neural teacher voice: ${INDIAN_VOICE_CONFIG[voicePreferences.language].label}` : "Using device voice temporarily"}
+                  {voiceStatus?.fallback
+                    ? "Using device voice temporarily"
+                    : voiceStatus
+                      ? `Neural teacher voice: ${voiceStatus.provider.toUpperCase()} / ${INDIAN_VOICE_CONFIG[voicePreferences.language].label}`
+                      : "Using device voice temporarily"}
                 </p>
+                {voiceStatus?.fallback ? <p className="mt-2 text-xs font-semibold text-amber-700">Device voice is active. Neural teacher voice is not configured or unavailable.</p> : null}
                 <div className="mt-4 rounded-2xl bg-slate-50 p-4">
                   <div className="text-xs font-black uppercase tracking-wide text-slate-500">Current beat</div>
                   <p className="mt-2 text-lg font-black leading-7 text-slate-950">{getStepTitle(step)}</p>
                   {showTeacherNotes && (
                     <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-                      {spokenNarration || getStepNarration(step, scene)}
+                      {sanitizeTeacherNarration(spokenNarration || getStepNarration(step, scene), { language: voicePreferences.language })}
                     </p>
                   )}
                 </div>
@@ -906,15 +915,6 @@ function pickPreferredVoice(voices: SpeechSynthesisVoice[], language: string) {
     voices.find((voice) => preferredNames.some((name) => voice.name.includes(name))) ||
     voices.find((voice) => voice.lang.startsWith("en"))
   );
-}
-
-function toNaturalNarration(text: string) {
-  return text
-    .replace(/slide title[:\s]*/gi, "")
-    .replace(/explanation[:\s]*/gi, "")
-    .replace(/example[:\s]*/gi, "For example, ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function estimateNarrationMs(text: string, speed: VoiceSpeed) {

@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { getChild } from "@/lib/mock-data";
+import { NARRATION_QUALITY_VERSION, sanitizeTeacherNarration } from "@/lib/voice/narration-sanitizer";
 import { getChapterByNumber } from "@/lib/learning/chapter-catalog";
 import { checkAndIncrementAiUsage } from "@/lib/usage-store";
 import { getRequestAccess } from "@/lib/request-access";
@@ -228,7 +229,7 @@ For lessonScope "topic", return 6 to 10 cinematic scenes for the selected topic 
 For lessonScope "chapter", return the complete chapter in correct teaching order, with 1 to 2 cinematic scenes per concept, 5 to 10 beats per scene, section checks, final recap, chapter quiz, and weak-area practice. Matter in Our Surroundings requires at least 12 concepts. Number Systems requires at least 10 concepts. Also include a flattened scenes array containing all chapterConcepts scenes in order for compatibility.
 Every concept must follow this teacher sequence: real-life hook, prior knowledge connection, full definition, visual explanation, step-by-step breakdown, example, non-example, common mistake, mini question, correction/remediation, summary, and practice. Use these ideas across scene steps instead of returning short cards.
 Each beat's teacherNarration must be 60 to 120 words, written like a calm Indian school teacher speaking slowly to a child. boardText must be one or two short lines only. Every beat must include camera, visual.visualType, visual.visualData, animation, and highlight. Visuals must carry the meaning through zoom, pan, movement, transformation, particles, comparison, and timely highlighting. Use simple English, age-appropriate examples, and CBSE/NCERT terminology for Class 9 Maths and Science.
-Write narration as natural spoken classroom language, not robotic textbook paragraphs. Avoid meta phrases like "A good teacher begins", "Watch the board first", "Now add the cause", "Science ideas become clear", or any line that sounds like an AI narrator. Keep sentences short, child-friendly, and conversational. Prefer soft transitions such as "Let us understand this slowly", "Now look at this example", "Here is the important point", "Do not worry if this feels new", and "Let us try one small question".
+Strictly forbidden narration phrases: "A good teacher begins", "Watch the board first", "Listen for the rule", "This concept becomes easier", "Science ideas become clear", "Real-life hook: particles", "Now add cause", "Build a diagram", and any meta commentary about teaching method. Speak directly to the student. Explain the concept, not the teaching process. Use short natural classroom sentences, concrete examples, and calm teacher-like flow. Avoid robotic textbook paragraphs and awkward title repetition.
 For maths, use circles, bars, number lines, formulas, tables, and comparisons wherever relevant. For science, prefer particle-motion-board, states-of-matter-board, heating-curve-board, evaporation-board, motion tracks, arrows, and labeled diagrams. Avoid generic concept/cause/effect bubbles unless only supporting a better visual.
 ${createNarrationLanguageInstructions(narrationLanguage, narrationLanguageMode, narrationVoiceStyle)}`,
         },
@@ -255,10 +256,12 @@ Each scene should have 5 to 10 cinematic beats. Each teacherNarration should be 
       ],
     });
     const parsed = JSON.parse(completion.choices[0]?.message.content || "{}");
-    return Response.json(normalizeVisualLesson(parsed, fallback));
+    const lesson = sanitizeVisualLessonNarration(normalizeVisualLesson(parsed, fallback));
+    return Response.json({ ...lesson, narrationQualityVersion: NARRATION_QUALITY_VERSION });
   } catch (error) {
     console.warn("[visual-lesson] Falling back to structured lesson", error);
-    return Response.json(fallback);
+    const lesson = sanitizeVisualLessonNarration(fallback);
+    return Response.json({ ...lesson, narrationQualityVersion: NARRATION_QUALITY_VERSION });
   }
 }
 
@@ -315,6 +318,45 @@ function createChapterPromptHints(subject: string, chapterName: string, concepts
   return base.join("\n");
 }
 
+function sanitizeVisualLessonNarration(lesson: VisualLesson): VisualLesson {
+  return {
+    ...lesson,
+    scenes: (lesson.scenes || []).map((scene) => ({
+      ...scene,
+      teacherScript: sanitizeTeacherNarration(scene.teacherScript || "", { language: "en-IN" }),
+      steps: (scene.steps || []).map((step) => ({
+        ...step,
+        teacherNarration: sanitizeTeacherNarration(step.teacherNarration || step.narration || "", { language: "en-IN" }),
+        narration: sanitizeTeacherNarration(step.narration || step.teacherNarration || "", { language: "en-IN" }),
+      })),
+      beats: (scene.beats || []).map((beat) => ({
+        ...beat,
+        teacherNarration: sanitizeTeacherNarration(beat.teacherNarration || "", { language: "en-IN" }),
+      })),
+    })),
+    chapterConcepts: (lesson.chapterConcepts || []).map((concept) => ({
+      ...concept,
+      scenes: (concept.scenes || []).map((scene) => ({
+        ...scene,
+        teacherScript: sanitizeTeacherNarration(scene.teacherScript || "", { language: "en-IN" }),
+        steps: (scene.steps || []).map((step) => ({
+          ...step,
+          teacherNarration: sanitizeTeacherNarration(step.teacherNarration || step.narration || "", { language: "en-IN" }),
+          narration: sanitizeTeacherNarration(step.narration || step.teacherNarration || "", { language: "en-IN" }),
+        })),
+        beats: (scene.beats || []).map((beat) => ({
+          ...beat,
+          teacherNarration: sanitizeTeacherNarration(beat.teacherNarration || "", { language: "en-IN" }),
+        })),
+      })),
+    })),
+    slides: (lesson.slides || []).map((slide) => ({
+      ...slide,
+      teacherScript: sanitizeTeacherNarration(slide.teacherScript || "", { language: "en-IN" }),
+    })),
+  };
+}
+
 function normalizeVisualLesson(value: unknown, fallback: VisualLesson): VisualLesson {
   const input = Array.isArray(value) ? { title: fallback.title, gradeLevel: fallback.gradeLevel, slides: value } : asRecord(value);
   const chapterConcepts = asArray(input.chapterConcepts)
@@ -352,7 +394,8 @@ function normalizeVisualLesson(value: unknown, fallback: VisualLesson): VisualLe
     scenes: nextScenes,
     slides: nextSlides,
   };
-  return isLessonQualityAcceptable(candidate, fallback) ? deepenVisualLesson(candidate) : fallback;
+  const sanitizedCandidate = sanitizeVisualLessonNarration(candidate);
+  return isLessonQualityAcceptable(sanitizedCandidate, fallback) ? deepenVisualLesson(sanitizedCandidate) : fallback;
 }
 
 function normalizeChapterConcept(value: unknown): VisualLessonChapterConcept | undefined {

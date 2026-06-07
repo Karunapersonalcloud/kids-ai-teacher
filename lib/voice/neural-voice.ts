@@ -4,6 +4,7 @@ import { createHash } from "crypto";
 import OpenAI from "openai";
 import type { PlanName } from "@/lib/billing-types";
 import { getAzureVoice, isProviderConfigured, voiceConfig } from "./voice-config";
+import { NARRATION_QUALITY_VERSION, sanitizeTeacherNarration } from "./narration-sanitizer";
 import {
   INDIAN_VOICE_CONFIG,
   type IndianVoiceLanguage,
@@ -285,6 +286,7 @@ function buildRequestSignature(input: NarrationRequest) {
         voiceConfig.openai.voice,
         voiceConfig.openai.model,
         input.cacheKey || "",
+        NARRATION_QUALITY_VERSION,
         input.text,
       ].join("|"),
     )
@@ -338,29 +340,12 @@ function containsExpectedScript(text: string, language: IndianVoiceLanguage) {
   return patterns[language]?.test(text) || false;
 }
 
-export function normalizeTeacherNarration(text: string) {
-  const cleaned = text
-    .replace(/\?\./g, "?")
-    .replace(/!\./g, "!")
-    .replace(/\.\./g, ".")
-    .replace(/\bLook around before we start What is matter\?\b/gi, "Before we learn the definition, look around you.")
-    .replace(/\bA good teacher begins[^.]*\.?\s*/gi, "")
-    .replace(/\bWatch the board first, then listen for the rule\.?\s*/gi, "")
-    .replace(/\bThis concept becomes easier[^.]*\.?\s*/gi, "")
-    .replace(/\bScience ideas become clear[^.]*\.?\s*/gi, "")
-    .replace(/\bNow add cause[^.]*\.?\s*/gi, "")
-    .replace(/\bNow look at this example\.?\s*/gi, "Now look at this example. ")
-    .replace(/\bA good teacher[^.]*\.?\s*/gi, "")
-    .replace(/\s+/g, " ")
-    .replace(/\s+([,.;:?!])/g, "$1")
-    .trim();
-
-  if (!cleaned) return "";
-  return cleaned.replace(/\b(What is matter\?)(?=\s)/gi, "What is matter?");
+export function normalizeTeacherNarration(text: string, context?: { subject?: string; chapter?: string; conceptTitle?: string; language?: IndianVoiceLanguage }) {
+  return sanitizeTeacherNarration(text, context);
 }
 
 function normalizeNarrationText(text: string) {
-  return normalizeTeacherNarration(text.replace(/\s+/g, " ").trim());
+  return sanitizeTeacherNarration(text);
 }
 
 function estimateNarrationDuration(text: string, speed: VoiceSpeed) {
