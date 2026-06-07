@@ -1,5 +1,5 @@
 import { getRequestAccess } from "@/lib/request-access";
-import { createNeuralNarration, VoiceLimitError, type NarrationRequest } from "@/lib/voice/neural-voice";
+import { createNeuralNarration, normalizeTeacherNarration, VoiceLimitError, type NarrationRequest } from "@/lib/voice/neural-voice";
 import { voiceConfig } from "@/lib/voice/voice-config";
 import {
   isIndianVoiceLanguage,
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     }
 
     const raw = (await request.json()) as Partial<NarrationRequest>;
-    const text = typeof raw.text === "string" ? raw.text.replace(/\s+/g, " ").trim() : "";
+    const text = typeof raw.text === "string" ? normalizeTeacherNarration(raw.text.replace(/\s+/g, " ").trim()) : "";
     if (!text) return fallbackResponse("Teacher narration text is required.", 400);
     if (text.length > voiceConfig.maxNarrationCharacters) {
       return fallbackResponse(`Narration is limited to ${voiceConfig.maxNarrationCharacters} characters per beat.`, 400);
@@ -41,13 +41,15 @@ export async function POST(request: Request) {
       beatId: safeIdentifier(raw.beatId, "beat"),
       language: isIndianVoiceLanguage(raw.language) ? raw.language : voiceConfig.defaultLanguage,
       voiceProvider: isVoiceProvider(raw.voiceProvider) ? raw.voiceProvider : voiceConfig.provider,
-      voiceStyle: isVoiceStyle(raw.voiceStyle) ? raw.voiceStyle : "warm-teacher",
+      voiceStyle: isVoiceStyle(raw.voiceStyle) ? raw.voiceStyle : "soft-indian-teacher",
       languageMode: isVoiceLanguageMode(raw.languageMode)
         ? raw.languageMode
         : isIndianVoiceLanguage(raw.language) && raw.language !== "en-IN"
           ? "bilingual"
           : "english-only",
       speed: isVoiceSpeed(raw.speed) ? raw.speed : normalizeNumericSpeed(raw.speed),
+      tone: raw.tone === "calm" ? "calm" : "neutral",
+      volume: typeof raw.volume === "number" ? Math.max(0.35, Math.min(1, raw.volume)) : 0.75,
       cacheKey: safeIdentifier(raw.cacheKey, ""),
     };
 
@@ -94,7 +96,7 @@ function safeIdentifier(value: unknown, fallback: string) {
 
 function normalizeNumericSpeed(value: unknown) {
   if (typeof value !== "number") return "normal" as const;
+  if (value <= 0.85) return "very-slow" as const;
   if (value < 0.95) return "slow" as const;
-  if (value > 1.05) return "fast" as const;
   return "normal" as const;
 }

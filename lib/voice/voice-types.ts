@@ -57,9 +57,9 @@ export const INDIAN_VOICE_CONFIG = {
 
 export type IndianVoiceLanguage = keyof typeof INDIAN_VOICE_CONFIG;
 export type VoiceProvider = "azure" | "elevenlabs" | "openai" | "browser-fallback";
-export type VoiceStyle = "warm-teacher" | "story-teacher" | "exam-coach" | "calm-parent";
+export type VoiceStyle = "soft-indian-teacher" | "story-teacher" | "exam-coach" | "calm-parent";
 export type VoiceLanguageMode = "english-only" | "regional-only" | "bilingual";
-export type VoiceSpeed = "slow" | "normal" | "fast";
+export type VoiceSpeed = "very-slow" | "slow" | "normal";
 export type ExplanationDepth = "Quick" | "Standard" | "Detailed";
 
 export type VoicePreferences = {
@@ -72,14 +72,14 @@ export type VoicePreferences = {
 
 export const DEFAULT_VOICE_PREFERENCES: VoicePreferences = {
   language: "en-IN",
-  voiceStyle: "warm-teacher",
+  voiceStyle: "soft-indian-teacher",
   languageMode: "english-only",
-  speed: "normal",
+  speed: "slow",
   explanationDepth: "Detailed",
 };
 
 export const VOICE_STYLE_LABELS: Record<VoiceStyle, string> = {
-  "warm-teacher": "Warm teacher",
+  "soft-indian-teacher": "Soft teacher",
   "story-teacher": "Story teacher",
   "exam-coach": "Exam coach",
   "calm-parent": "Calm parent",
@@ -92,9 +92,9 @@ export const VOICE_LANGUAGE_MODE_LABELS: Record<VoiceLanguageMode, string> = {
 };
 
 export const VOICE_SPEED_LABELS: Record<VoiceSpeed, string> = {
+  "very-slow": "Very slow",
   slow: "Slow",
   normal: "Normal",
-  fast: "Fast",
 };
 
 export function isIndianVoiceLanguage(value: unknown): value is IndianVoiceLanguage {
@@ -106,7 +106,7 @@ export function isVoiceProvider(value: unknown): value is VoiceProvider {
 }
 
 export function isVoiceStyle(value: unknown): value is VoiceStyle {
-  return value === "warm-teacher" || value === "story-teacher" || value === "exam-coach" || value === "calm-parent";
+  return value === "soft-indian-teacher" || value === "story-teacher" || value === "exam-coach" || value === "calm-parent";
 }
 
 export function isVoiceLanguageMode(value: unknown): value is VoiceLanguageMode {
@@ -114,5 +114,5 @@ export function isVoiceLanguageMode(value: unknown): value is VoiceLanguageMode 
 }
 
 export function isVoiceSpeed(value: unknown): value is VoiceSpeed {
-  return value === "slow" || value === "normal" || value === "fast";
+  return value === "very-slow" || value === "slow" || value === "normal";
 }

@@ -21,9 +21,9 @@ import {
 
 type CoachMode = "again" | "slower" | "example" | "question" | "practice";
 const browserVoiceSettings: Record<VoiceSpeed, { rate: number; pitch: number }> = {
-  slow: { rate: 0.82, pitch: 1.03 },
+  "very-slow": { rate: 0.78, pitch: 0.98 },
+  slow: { rate: 0.88, pitch: 1 },
   normal: { rate: 0.96, pitch: 1.02 },
-  fast: { rate: 1.12, pitch: 1 },
 };
 
 type SceneEntry = {
@@ -595,9 +595,9 @@ function AnimatedVisualTeacher({
                 </select>
               </label>
               <label className="mt-3 grid gap-1 text-xs font-black uppercase tracking-wide text-slate-500">
-                Voice type
+                Voice tone
                 <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold normal-case text-slate-800">
-                  Human-like teacher voice
+                  Soft teacher default
                 </span>
               </label>
               <label className="mt-3 grid gap-1 text-xs font-black uppercase tracking-wide text-slate-500">
@@ -659,7 +659,7 @@ function AnimatedVisualTeacher({
                 Show teacher notes
               </label>
               <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">
-                Play synchronizes an AI-generated neural teacher voice with every cinematic beat.
+                Play synchronizes a calm neural teacher voice with every cinematic beat. Default tone is soft and patient, not bold or loud.
               </p>
             </div>
           )}
@@ -755,6 +755,9 @@ function AnimatedVisualTeacher({
                   <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black uppercase text-purple-700">{step.beatType || step.action}</span>
                   {step.highlight ? <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">Focus: {step.highlight}</span> : null}
                 </div>
+                <p className="mt-3 text-xs font-semibold text-slate-500">
+                  {voiceStatus ? `Neural teacher voice: ${INDIAN_VOICE_CONFIG[voicePreferences.language].label}` : "Using device voice temporarily"}
+                </p>
                 <div className="mt-4 rounded-2xl bg-slate-50 p-4">
                   <div className="text-xs font-black uppercase tracking-wide text-slate-500">Current beat</div>
                   <p className="mt-2 text-lg font-black leading-7 text-slate-950">{getStepTitle(step)}</p>

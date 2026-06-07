@@ -23,6 +23,8 @@ export type NarrationRequest = {
   voiceStyle: VoiceStyle;
   languageMode: VoiceLanguageMode;
   speed: VoiceSpeed;
+  tone?: "calm" | "neutral";
+  volume?: number;
   cacheKey?: string;
 };
 
@@ -71,9 +73,9 @@ const dailyMinuteLimits: Record<PlanName, number> = {
 };
 
 const speedValues: Record<VoiceSpeed, number> = {
-  slow: 0.85,
+  "very-slow": 0.82,
+  slow: 0.88,
   normal: 1,
-  fast: 1.15,
 };
 
 export class VoiceLimitError extends Error {
@@ -87,7 +89,7 @@ export async function createNeuralNarration(
   input: NarrationRequest,
   access: { userId: string; plan: PlanName },
 ): Promise<NeuralNarration | undefined> {
-  const normalizedText = normalizeNarrationText(input.text);
+  const normalizedText = normalizeTeacherNarration(normalizeNarrationText(input.text));
   const requestSignature = buildRequestSignature({ ...input, text: normalizedText });
   const cached = state.cache.get(requestSignature);
   if (cached) {
@@ -102,6 +104,7 @@ export async function createNeuralNarration(
   for (const provider of providers) {
     if (!isProviderConfigured(provider)) continue;
     try {
+      console.info("[voice] provider", { provider, language: input.language, voiceName: getAzureVoice(input.language), style: input.voiceStyle, speed: input.speed, fallback: provider !== input.voiceProvider });
       const generated =
         provider === "azure"
           ? await synthesizeWithAzure(narrationText, input)
@@ -141,10 +144,10 @@ function getProviderOrder(selected: VoiceProvider): Array<Exclude<VoiceProvider,
 async function synthesizeWithAzure(text: string, input: NarrationRequest) {
   const voiceName = getAzureVoice(input.language);
   const rate = Math.round((speedValues[input.speed] - 1) * 100);
-  const pitch = input.voiceStyle === "story-teacher" ? "+4%" : input.voiceStyle === "calm-parent" ? "-2%" : "0%";
-  const ssml = `<speak version="1.0" xml:lang="${input.language}"><voice name="${escapeXml(
-    voiceName,
-  )}"><prosody rate="${rate >= 0 ? "+" : ""}${rate}%" pitch="${pitch}">${escapeXml(text)}</prosody></voice></speak>`;
+  const pitch = input.voiceStyle === "story-teacher" ? "+2%" : input.voiceStyle === "calm-parent" ? "-2%" : "-2%";
+  const volume = input.volume && input.volume <= 0.5 ? "soft" : input.tone === "calm" ? "medium" : "medium";
+  const withPauses = text.replace(/([.!?])\s+/g, "$1 <break time=\"300ms\"/> ");
+  const ssml = `<speak version="1.0" xml:lang="${input.language}"><voice name="${escapeXml(voiceName)}"><prosody rate="${rate >= 0 ? "+" : ""}${rate}%" pitch="${pitch}" volume="${volume}">${escapeXml(withPauses)}</prosody></voice></speak>`;
   const response = await fetch(
     `https://${encodeURIComponent(voiceConfig.azure.region)}.tts.speech.microsoft.com/cognitiveservices/v1`,
     {
@@ -169,7 +172,7 @@ async function synthesizeWithAzure(text: string, input: NarrationRequest) {
 
 async function synthesizeWithElevenLabs(text: string, input: NarrationRequest) {
   const voiceName = voiceConfig.elevenLabs.voiceId;
-  const style = input.voiceStyle === "story-teacher" ? 0.4 : input.voiceStyle === "exam-coach" ? 0.15 : 0.25;
+  const style = input.voiceStyle === "story-teacher" ? 0.26 : input.voiceStyle === "exam-coach" ? 0.14 : 0.08;
   const response = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceConfig.elevenLabs.voiceId)}?output_format=mp3_44100_128`,
     {
@@ -183,8 +186,8 @@ async function synthesizeWithElevenLabs(text: string, input: NarrationRequest) {
         model_id: voiceConfig.elevenLabs.model,
         language_code: INDIAN_VOICE_CONFIG[input.language].elevenLabsLanguage,
         voice_settings: {
-          stability: input.voiceStyle === "exam-coach" ? 0.68 : 0.55,
-          similarity_boost: 0.75,
+          stability: input.voiceStyle === "exam-coach" ? 0.74 : 0.82,
+          similarity_boost: 0.62,
           style,
           use_speaker_boost: true,
           speed: speedValues[input.speed],
@@ -256,12 +259,12 @@ async function localizeNarration(
 
 function buildOpenAIVoiceInstructions(input: NarrationRequest) {
   const styleInstructions: Record<VoiceStyle, string> = {
-    "warm-teacher": "Speak like a warm, patient Indian school teacher. Sound encouraging, clear, and natural.",
+    "soft-indian-teacher": "Speak like a calm, patient Indian school teacher. Be warm, soft, gentle, and child-friendly, not loud or dramatic.",
     "story-teacher": "Speak like an engaging Indian teacher telling a vivid educational story, with gentle expressive variation.",
-    "exam-coach": "Speak like a focused but reassuring CBSE exam coach. Emphasize definitions, conditions, and memory points.",
+    "exam-coach": "Speak like a focused but reassuring CBSE exam coach. Emphasize definitions, conditions, and memory points, without sounding harsh.",
     "calm-parent": "Speak calmly and patiently, like a supportive parent helping a child understand without pressure.",
   };
-  return `${styleInstructions[input.voiceStyle]} Use ${INDIAN_VOICE_CONFIG[input.language].openaiLanguageHint} pronunciation. Do not sound theatrical.`;
+  return `${styleInstructions[input.voiceStyle]} Use ${INDIAN_VOICE_CONFIG[input.language].openaiLanguageHint} pronunciation. Keep the tone calm, soft, and natural. Avoid theatrical excitement.`;
 }
 
 function buildRequestSignature(input: NarrationRequest) {
@@ -335,8 +338,29 @@ function containsExpectedScript(text: string, language: IndianVoiceLanguage) {
   return patterns[language]?.test(text) || false;
 }
 
+export function normalizeTeacherNarration(text: string) {
+  const cleaned = text
+    .replace(/\?\./g, "?")
+    .replace(/!\./g, "!")
+    .replace(/\.\./g, ".")
+    .replace(/\bLook around before we start What is matter\?\b/gi, "Before we learn the definition, look around you.")
+    .replace(/\bA good teacher begins[^.]*\.?\s*/gi, "")
+    .replace(/\bWatch the board first, then listen for the rule\.?\s*/gi, "")
+    .replace(/\bThis concept becomes easier[^.]*\.?\s*/gi, "")
+    .replace(/\bScience ideas become clear[^.]*\.?\s*/gi, "")
+    .replace(/\bNow add cause[^.]*\.?\s*/gi, "")
+    .replace(/\bNow look at this example\.?\s*/gi, "Now look at this example. ")
+    .replace(/\bA good teacher[^.]*\.?\s*/gi, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:?!])/g, "$1")
+    .trim();
+
+  if (!cleaned) return "";
+  return cleaned.replace(/\b(What is matter\?)(?=\s)/gi, "What is matter?");
+}
+
 function normalizeNarrationText(text: string) {
-  return text.replace(/\s+/g, " ").trim();
+  return normalizeTeacherNarration(text.replace(/\s+/g, " ").trim());
 }
 
 function estimateNarrationDuration(text: string, speed: VoiceSpeed) {

@@ -14,6 +14,7 @@ import {
   type VoiceLanguageMode,
   type VoiceStyle,
 } from "@/lib/voice/voice-types";
+import { normalizeTeacherNarration } from "@/lib/voice/neural-voice";
 
 export const runtime = "nodejs";
 
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
     : narrationLanguage === "en-IN"
       ? "english-only"
       : "bilingual";
-  const narrationVoiceStyle = isVoiceStyle(body.narrationVoiceStyle) ? body.narrationVoiceStyle : "warm-teacher";
+  const narrationVoiceStyle = isVoiceStyle(body.narrationVoiceStyle) ? body.narrationVoiceStyle : "soft-indian-teacher";
   const lessonScope = isChapterScope(conceptName, body.topic) ? "chapter" : "topic";
   const selectedConcept = lessonScope === "chapter" ? chapterName : conceptName || concepts[0] || chapterName;
   const profile = lessonScope === "topic" ? buildTopicProfile({ board, subject, chapterName, conceptName: selectedConcept, concepts }) : undefined;
@@ -226,8 +227,9 @@ Shape:
 For lessonScope "topic", return 6 to 10 cinematic scenes for the selected topic only, with 5 to 10 beats per scene.
 For lessonScope "chapter", return the complete chapter in correct teaching order, with 1 to 2 cinematic scenes per concept, 5 to 10 beats per scene, section checks, final recap, chapter quiz, and weak-area practice. Matter in Our Surroundings requires at least 12 concepts. Number Systems requires at least 10 concepts. Also include a flattened scenes array containing all chapterConcepts scenes in order for compatibility.
 Every concept must follow this teacher sequence: real-life hook, prior knowledge connection, full definition, visual explanation, step-by-step breakdown, example, non-example, common mistake, mini question, correction/remediation, summary, and practice. Use these ideas across scene steps instead of returning short cards.
-Each beat's teacherNarration must be 60 to 120 words, written like a patient senior school teacher. boardText must be one or two short lines only. Every beat must include camera, visual.visualType, visual.visualData, animation, and highlight. Visuals must carry the meaning through zoom, pan, movement, transformation, particles, comparison, and timely highlighting. Use simple English, age-appropriate examples, and CBSE/NCERT terminology for Class 9 Maths and Science.
-Avoid generic lines like "this is one part of the chapter", "Science ideas become clear", "Now add the cause", or "Build a diagram". For maths, use circles, bars, number lines, formulas, tables, and comparisons wherever relevant. For science, prefer particle-motion-board, states-of-matter-board, heating-curve-board, evaporation-board, motion tracks, arrows, and labeled diagrams. Avoid generic concept/cause/effect bubbles unless only supporting a better visual.
+Each beat's teacherNarration must be 60 to 120 words, written like a calm Indian school teacher speaking slowly to a child. boardText must be one or two short lines only. Every beat must include camera, visual.visualType, visual.visualData, animation, and highlight. Visuals must carry the meaning through zoom, pan, movement, transformation, particles, comparison, and timely highlighting. Use simple English, age-appropriate examples, and CBSE/NCERT terminology for Class 9 Maths and Science.
+Write narration as natural spoken classroom language, not robotic textbook paragraphs. Avoid meta phrases like "A good teacher begins", "Watch the board first", "Now add the cause", "Science ideas become clear", or any line that sounds like an AI narrator. Keep sentences short, child-friendly, and conversational. Prefer soft transitions such as "Let us understand this slowly", "Now look at this example", "Here is the important point", "Do not worry if this feels new", and "Let us try one small question".
+For maths, use circles, bars, number lines, formulas, tables, and comparisons wherever relevant. For science, prefer particle-motion-board, states-of-matter-board, heating-curve-board, evaporation-board, motion tracks, arrows, and labeled diagrams. Avoid generic concept/cause/effect bubbles unless only supporting a better visual.
 ${createNarrationLanguageInstructions(narrationLanguage, narrationLanguageMode, narrationVoiceStyle)}`,
         },
         {
@@ -277,12 +279,12 @@ function createNarrationLanguageInstructions(
 ) {
   const label = INDIAN_VOICE_CONFIG[language].label;
   if (language === "en-IN" || languageMode === "english-only") {
-    return `Write every teacherNarration in clear spoken Indian English. Use a ${voiceStyle} delivery: warm, patient, child-friendly, and natural.`;
+    return `Write every teacherNarration in clear spoken Indian English. Use a ${voiceStyle} delivery: calm, patient, child-friendly, and natural. Keep every sentence short and conversational. Avoid robotic textbook paragraphs, awkward meta phrases, and repeated titles.`;
   }
   if (languageMode === "regional-only") {
     return `Write every teacherNarration in simple spoken ${label}. This must be a natural teacher explanation, not a word-for-word translation. Keep formulas, symbols, and only essential textbook proper nouns in English. Avoid slang and overly formal literary language.`;
   }
-  return `Write every teacherNarration mainly in simple spoken ${label}, with important CBSE textbook and exam keywords reinforced in English. Use natural bilingual classroom speech, not word-for-word translation. Preserve formulas and exact subject terminology. Avoid slang and overly formal literary language.`;
+  return `Write every teacherNarration mainly in simple spoken ${label}, with important CBSE textbook and exam keywords reinforced in English. Use natural bilingual classroom speech, not word-for-word translation. Preserve formulas and exact subject terminology. Avoid slang, robotic textbook paragraphs, repeated titles, and meta phrases like "A good teacher begins" or "Watch the board first".`;
 }
 
 function createChapterPromptHints(subject: string, chapterName: string, concepts: string[]) {
@@ -410,7 +412,7 @@ function normalizeBeat(value: unknown, fallbackVisualType?: VisualSceneType): Ci
   const camera = asRecord(input.camera);
   const visual = asRecord(input.visual);
   const visualData = asRecord(visual.visualData);
-  const teacherNarration = asString(input.teacherNarration);
+  const teacherNarration = normalizeTeacherNarration(asString(input.teacherNarration));
   const beatId = asString(input.beatId);
   const beatType = normalizeBeatType(input.beatType);
   if (!beatId || !teacherNarration || !Object.keys(visualData).length) return undefined;
@@ -463,7 +465,7 @@ function normalizeStep(value: unknown): VisualLessonStep | undefined {
   const action = asString(input.action, asString(input.title, "explain"));
   const title = asString(input.title, action);
   const shortBoardText = asString(input.shortBoardText, title);
-  const teacherNarration = asString(input.teacherNarration, asString(input.narration));
+  const teacherNarration = normalizeTeacherNarration(asString(input.teacherNarration, asString(input.narration)));
   const narration = teacherNarration || asString(input.narration);
   const visualData = asRecord(input.visualData);
   const visual = Object.keys(visualData).length ? visualData : asRecord(input.visual);
