@@ -1,19 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, ArrowLeft, ArrowRight, BookOpen, CheckCircle2, CircleHelp, Lightbulb, Pause, Play, PlusCircle, RefreshCw, RotateCcw, Settings, SkipBack, SkipForward, Volume2 } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AlertTriangle, ArrowLeft, ArrowRight, BookOpen, Box, Check, CheckCircle2, CircleHelp, Clock3, Cloud, Droplets, Film, Gauge, Lightbulb, Maximize2, Pause, Play, PlusCircle, RefreshCw, RotateCcw, Settings, SkipBack, SkipForward, Sparkles, Volume2, Weight } from "lucide-react";
 import { AudioNarrationControls } from "./audio-narration-controls";
 import type { LearningChapter } from "@/lib/learning/chapter-catalog";
 import type { VisualLesson, VisualLessonScene, VisualLessonSlide, VisualLessonStep } from "@/lib/types";
+import {
+  INDIAN_VOICE_CONFIG,
+  VOICE_LANGUAGE_MODE_LABELS,
+  VOICE_SPEED_LABELS,
+  VOICE_STYLE_LABELS,
+  type ExplanationDepth,
+  type IndianVoiceLanguage,
+  type VoiceLanguageMode,
+  type VoicePreferences,
+  type VoiceSpeed,
+  type VoiceStyle,
+} from "@/lib/voice/voice-types";
 
-type CoachMode = "again" | "example" | "question" | "practice";
-type VoiceTone = "Slow and clear" | "Normal" | "Story teacher" | "Exam teacher";
-
-const voiceToneSettings: Record<VoiceTone, { rate: number; pitch: number }> = {
-  "Slow and clear": { rate: 0.82, pitch: 1.05 },
-  Normal: { rate: 0.95, pitch: 1.03 },
-  "Story teacher": { rate: 0.88, pitch: 1.12 },
-  "Exam teacher": { rate: 0.92, pitch: 1 },
+type CoachMode = "again" | "slower" | "example" | "question" | "practice";
+const browserVoiceSettings: Record<VoiceSpeed, { rate: number; pitch: number }> = {
+  slow: { rate: 0.82, pitch: 1.03 },
+  normal: { rate: 0.96, pitch: 1.02 },
+  fast: { rate: 1.12, pitch: 1 },
 };
 
 type SceneEntry = {
@@ -31,10 +41,16 @@ type VisualLessonPlayerProps = {
   chapter: LearningChapter;
   selectedConcept: string;
   source: string;
+  voicePreferences: VoicePreferences;
+  onVoicePreferencesChange: (preferences: VoicePreferences) => void;
 };
 
 export function VisualLessonPlayer(props: VisualLessonPlayerProps) {
-  if (props.lesson.scenes?.length || props.lesson.chapterConcepts?.some((concept) => concept.scenes.length)) {
+  const hasCinematicScenes =
+    props.lesson.mode === "cinematic-visual-teacher" &&
+    (props.lesson.scenes?.some((scene) => scene.beats?.length) ||
+      props.lesson.chapterConcepts?.some((concept) => concept.scenes.some((scene) => scene.beats?.length)));
+  if (hasCinematicScenes || props.lesson.scenes?.length || props.lesson.chapterConcepts?.some((concept) => concept.scenes.length)) {
     return <AnimatedVisualTeacher {...props} />;
   }
   return <SlideLessonPlayer {...props} />;
@@ -235,7 +251,17 @@ function SlideLessonPlayer({
   );
 }
 
-function AnimatedVisualTeacher({ lesson, grade, board, subject, chapter, selectedConcept, source }: VisualLessonPlayerProps) {
+function AnimatedVisualTeacher({
+  lesson,
+  grade,
+  board,
+  subject,
+  chapter,
+  selectedConcept,
+  source,
+  voicePreferences,
+  onVoicePreferencesChange,
+}: VisualLessonPlayerProps) {
   const sceneEntries = useMemo(() => getSceneEntries(lesson), [lesson]);
   const scenes = sceneEntries.map((entry) => entry.scene);
   const conceptGroups = useMemo(() => getConceptGroups(sceneEntries, lesson), [lesson, sceneEntries]);
@@ -245,88 +271,178 @@ function AnimatedVisualTeacher({ lesson, grade, board, subject, chapter, selecte
   const [playing, setPlaying] = useState(false);
   const [playRequest, setPlayRequest] = useState(0);
   const [coachMode, setCoachMode] = useState<CoachMode | null>(null);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [voiceName, setVoiceName] = useState("");
-  const [voiceTone, setVoiceTone] = useState<VoiceTone>("Slow and clear");
+  const [showTeacherNotes, setShowTeacherNotes] = useState(true);
   const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false);
-  const [audioWarning, setAudioWarning] = useState(() =>
-    typeof window !== "undefined" && !("speechSynthesis" in window) ? "Browser voice is unavailable. Visual animation will still play." : "",
-  );
+  const [audioWarning, setAudioWarning] = useState("");
+  const [voiceStatus, setVoiceStatus] = useState<{ provider: string; voiceName: string; cached: boolean } | null>(null);
+  const [spokenNarration, setSpokenNarration] = useState("");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const narrationRequestRef = useRef<AbortController | null>(null);
+  const narrationRunRef = useRef(0);
+  const autoPlayRef = useRef(autoPlay);
   const fallbackTimer = useRef<number | undefined>(undefined);
   const safeSceneIndex = Math.min(sceneIndex, Math.max(0, scenes.length - 1));
   const scene = scenes[safeSceneIndex] || scenes[0];
   const sceneEntry = sceneEntries[safeSceneIndex];
-  const steps = scene.steps.length ? scene.steps : [{ action: "explain", narration: scene.teacherScript, visual: {} }];
+  const steps = getPlayableSteps(scene);
   const safeStepIndex = Math.min(stepIndex, Math.max(0, steps.length - 1));
   const step = steps[safeStepIndex];
-  const totalSteps = scenes.reduce((sum, item) => sum + Math.max(1, item.steps.length), 0);
-  const completedSteps = scenes.slice(0, safeSceneIndex).reduce((sum, item) => sum + Math.max(1, item.steps.length), 0) + safeStepIndex + 1;
+  const totalSteps = scenes.reduce((sum, item) => sum + getPlayableSteps(item).length, 0);
+  const completedSteps = scenes.slice(0, safeSceneIndex).reduce((sum, item) => sum + getPlayableSteps(item).length, 0) + safeStepIndex + 1;
   const progress = Math.round((completedSteps / Math.max(1, totalSteps)) * 100);
-  const narrationText = step.narration || scene.teacherScript;
-  const selectedVoice = useMemo(() => voices.find((voice) => voice.name === voiceName) || pickPreferredVoice(voices, "en-IN"), [voiceName, voices]);
+  const narrationText = narrationForDepth(step, scene, voicePreferences.explanationDepth);
+  const lessonId = useMemo(
+    () => toVoiceIdentifier(`${lesson.lessonTitle || lesson.title}-${grade}-${subject}-${chapter.number}`),
+    [chapter.number, grade, lesson.lessonTitle, lesson.title, subject],
+  );
 
   useEffect(() => {
-    if (!("speechSynthesis" in window)) {
-      return;
-    }
-    const loadVoices = () => {
-      const nextVoices = window.speechSynthesis.getVoices();
-      setVoices(nextVoices);
-      setVoiceName((current) => current || pickPreferredVoice(nextVoices, "en-IN")?.name || "");
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
+    autoPlayRef.current = autoPlay;
+  }, [autoPlay]);
+
+  useEffect(() => {
     return () => {
-      stopSpeech(false);
-      window.speechSynthesis.onvoiceschanged = null;
+      stopNarration(false);
     };
   }, []);
 
   useEffect(() => {
     if (!playing) {
-      stopSpeech(false);
+      stopNarration(false);
       return;
     }
-    speakCurrentStep();
+    void playCurrentNarration();
     return () => {
       if (fallbackTimer.current) window.clearTimeout(fallbackTimer.current);
+      narrationRequestRef.current?.abort();
     };
-    // Speech should restart when the current step changes, voice settings change, or Play is clicked again.
+    // Narration should restart when the beat or selected neural voice preferences change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, playRequest, safeSceneIndex, safeStepIndex, narrationText, selectedVoice?.name, voiceTone]);
+  }, [
+    playing,
+    playRequest,
+    safeSceneIndex,
+    safeStepIndex,
+    narrationText,
+    voicePreferences.language,
+    voicePreferences.languageMode,
+    voicePreferences.speed,
+    voicePreferences.voiceStyle,
+  ]);
 
-  function speakCurrentStep() {
-    stopSpeech(false);
+  async function playCurrentNarration() {
+    stopNarration(false);
     setAudioWarning("");
+    setSpokenNarration(narrationText);
     if (!narrationText.trim()) return;
+    const runId = ++narrationRunRef.current;
+    const controller = new AbortController();
+    narrationRequestRef.current = controller;
+
+    try {
+      const response = await fetch("/api/voice/narrate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          text: toNaturalNarration(narrationText),
+          lessonId,
+          sceneId: scene.sceneId || `scene-${safeSceneIndex + 1}`,
+          beatId: step.stepId || `beat-${safeStepIndex + 1}`,
+          language: voicePreferences.language,
+          voiceStyle: voicePreferences.voiceStyle,
+          languageMode: voicePreferences.languageMode,
+          speed: voicePreferences.speed,
+          cacheKey: `${lessonId}:${safeSceneIndex}:${safeStepIndex}`,
+        }),
+      });
+      const data = (await response.json()) as {
+        ok?: boolean;
+        audioUrl?: string;
+        provider?: string;
+        voiceName?: string;
+        cached?: boolean;
+        narrationText?: string;
+      };
+      if (runId !== narrationRunRef.current || controller.signal.aborted) return;
+      if (!data.ok || !data.audioUrl) {
+        playBrowserFallback(data.narrationText || narrationText);
+        return;
+      }
+
+      const localizedNarration = data.narrationText || narrationText;
+      setSpokenNarration(localizedNarration);
+      setVoiceStatus({
+        provider: data.provider || "neural",
+        voiceName: data.voiceName || "Teacher voice",
+        cached: Boolean(data.cached),
+      });
+      const audio = new Audio(data.audioUrl);
+      audioRef.current = audio;
+      audio.onended = () => {
+        if (runId === narrationRunRef.current) advanceAfterNarration();
+      };
+      audio.onerror = () => {
+        if (runId === narrationRunRef.current) playBrowserFallback(localizedNarration);
+      };
+      await audio.play();
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (runId === narrationRunRef.current) playBrowserFallback(narrationText);
+    }
+  }
+
+  function playBrowserFallback(text: string) {
+    setVoiceStatus(null);
+    setAudioWarning("Using device voice temporarily. Neural regional teacher voice is unavailable.");
     if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
-      setAudioWarning("Browser voice is unavailable. Visual animation will still play.");
-      if (autoPlay) {
-        fallbackTimer.current = window.setTimeout(() => advanceAfterNarration(), estimateNarrationMs(narrationText, voiceTone));
+      if (autoPlayRef.current) {
+        fallbackTimer.current = window.setTimeout(
+          () => advanceAfterNarration(),
+          estimateNarrationMs(text, voicePreferences.speed),
+        );
       }
       return;
     }
-    const utterance = new SpeechSynthesisUtterance(toNaturalNarration(narrationText));
-    utterance.lang = selectedVoice?.lang || "en-IN";
+    const utterance = new SpeechSynthesisUtterance(toNaturalNarration(text));
+    const browserVoices = window.speechSynthesis.getVoices();
+    const selectedVoice = pickPreferredVoice(browserVoices, voicePreferences.language);
+    utterance.lang = selectedVoice?.lang || voicePreferences.language;
     utterance.voice = selectedVoice || null;
-    utterance.rate = voiceToneSettings[voiceTone].rate;
-    utterance.pitch = voiceToneSettings[voiceTone].pitch;
+    utterance.rate = browserVoiceSettings[voicePreferences.speed].rate;
+    utterance.pitch = browserVoiceSettings[voicePreferences.speed].pitch;
     utterance.onend = () => advanceAfterNarration();
     utterance.onerror = () => {
-      setAudioWarning("Voice narration stopped, but the visual lesson can continue.");
-      advanceAfterNarration();
+      if (autoPlayRef.current) {
+        fallbackTimer.current = window.setTimeout(
+          () => advanceAfterNarration(),
+          estimateNarrationMs(text, voicePreferences.speed),
+        );
+      }
     };
     window.speechSynthesis.speak(utterance);
   }
 
-  function stopSpeech(updatePlaying: boolean) {
+  function stopNarration(updatePlaying: boolean) {
+    narrationRunRef.current += 1;
+    narrationRequestRef.current?.abort();
+    narrationRequestRef.current = null;
     if (fallbackTimer.current) window.clearTimeout(fallbackTimer.current);
     fallbackTimer.current = undefined;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     if (updatePlaying) setPlaying(false);
   }
 
   function advanceAfterNarration() {
+    if (step.checkForUnderstanding) {
+      setPlaying(false);
+      return;
+    }
     if (!autoPlay) {
       setPlaying(false);
       return;
@@ -358,7 +474,7 @@ function AnimatedVisualTeacher({ lesson, grade, board, subject, chapter, selecte
   }
 
   function goPreviousStep() {
-    stopSpeech(false);
+    stopNarration(false);
     setCoachMode(null);
     if (safeStepIndex > 0) {
       setStepIndex(safeStepIndex - 1);
@@ -369,16 +485,15 @@ function AnimatedVisualTeacher({ lesson, grade, board, subject, chapter, selecte
     if (safeSceneIndex > 0) {
       const previousScene = scenes[safeSceneIndex - 1];
       setSceneIndex(safeSceneIndex - 1);
-      setStepIndex(Math.max(0, previousScene.steps.length - 1));
+      setStepIndex(Math.max(0, getPlayableSteps(previousScene).length - 1));
       setPlaying(autoPlay);
       if (autoPlay) setPlayRequest((value) => value + 1);
     }
   }
 
-  function replayScene() {
-    stopSpeech(false);
+  function replayCurrentBeat() {
+    stopNarration(false);
     setCoachMode(null);
-    setStepIndex(0);
     setPlaying(true);
     setPlayRequest((value) => value + 1);
   }
@@ -390,11 +505,11 @@ function AnimatedVisualTeacher({ lesson, grade, board, subject, chapter, selecte
 
   function pauseLesson() {
     setAutoPlay(false);
-    stopSpeech(true);
+    stopNarration(true);
   }
 
   function chooseScene(index: number, shouldPlay = false) {
-    stopSpeech(false);
+    stopNarration(false);
     setCoachMode(null);
     setSceneIndex(index);
     setStepIndex(0);
@@ -408,16 +523,40 @@ function AnimatedVisualTeacher({ lesson, grade, board, subject, chapter, selecte
       setPlaying(true);
       setPlayRequest((value) => value + 1);
     } else {
-      stopSpeech(true);
+      stopNarration(true);
     }
+  }
+
+  function chooseCoachMode(mode: CoachMode) {
+    setCoachMode(mode);
+    if (mode === "again" || mode === "slower") {
+      if (mode === "again") updateVoicePreferences({ explanationDepth: "Detailed" });
+      if (mode === "slower") updateVoicePreferences({ speed: "slow" });
+      setPlaying(true);
+      setPlayRequest((value) => value + 1);
+    }
+  }
+
+  function updateVoicePreferences(update: Partial<VoicePreferences>) {
+    onVoicePreferencesChange({ ...voicePreferences, ...update });
   }
 
   return (
     <section className="mt-5 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-purple-100">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-sm font-black text-purple-700">Chapter {chapter.number}: {chapter.name}</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-950">{lesson.lessonScope === "chapter" ? "Animated Chapter Teacher" : "Visual Teacher Mode"}</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-black text-purple-700">Chapter {chapter.number}: {chapter.name}</p>
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
+              <Film className="h-3.5 w-3.5" /> {lesson.lessonScope === "chapter" ? "Cinematic Chapter Lesson" : "Cinematic Teacher Mode"}
+            </span>
+            {lesson.estimatedDurationMinutes ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-800">
+                <Clock3 className="h-3.5 w-3.5" /> {lesson.estimatedDurationMinutes} min
+              </span>
+            ) : null}
+          </div>
+          <h2 className="mt-2 text-2xl font-black text-slate-950">{lesson.lessonTitle || lesson.title}</h2>
           <p className="mt-1 text-sm font-bold text-slate-500">{grade} · {subject} · {board} · {lesson.lessonScope === "chapter" ? "All Concepts" : selectedConcept} · Source: {source}</p>
         </div>
         <div className="relative">
@@ -429,29 +568,99 @@ function AnimatedVisualTeacher({ lesson, grade, board, subject, chapter, selecte
             <Settings className="h-4 w-4" /> Voice settings
           </button>
           {voiceSettingsOpen && (
-            <div className="absolute right-0 z-20 mt-2 w-80 rounded-2xl bg-white p-4 shadow-xl ring-1 ring-slate-200">
+            <div className="absolute right-0 z-30 mt-2 w-80 rounded-2xl bg-white p-4 shadow-xl ring-1 ring-slate-200">
               <label className="grid gap-1 text-xs font-black uppercase tracking-wide text-slate-500">
-                Voice
-                <select className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold normal-case text-slate-800" value={voiceName} onChange={(event) => setVoiceName(event.target.value)}>
-                  <option value="">Best available voice</option>
-                  {voices.map((voice) => (
-                    <option key={`${voice.name}-${voice.lang}`} value={voice.name}>
-                      {voice.name} ({voice.lang})
+                Language
+                <select
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold normal-case text-slate-800"
+                  value={voicePreferences.language}
+                  onChange={(event) => {
+                    const language = event.target.value as IndianVoiceLanguage;
+                    updateVoicePreferences({
+                      language,
+                      languageMode:
+                        language === "en-IN"
+                          ? "english-only"
+                          : voicePreferences.languageMode === "english-only"
+                            ? "bilingual"
+                            : voicePreferences.languageMode,
+                    });
+                  }}
+                >
+                  {Object.entries(INDIAN_VOICE_CONFIG).map(([language, config]) => (
+                    <option key={language} value={language}>
+                      {config.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="mt-3 grid gap-1 text-xs font-black uppercase tracking-wide text-slate-500">
+                Voice type
+                <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold normal-case text-slate-800">
+                  Human-like teacher voice
+                </span>
+              </label>
+              <label className="mt-3 grid gap-1 text-xs font-black uppercase tracking-wide text-slate-500">
+                Teaching style
+                <select
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold normal-case text-slate-800"
+                  value={voicePreferences.voiceStyle}
+                  onChange={(event) => updateVoicePreferences({ voiceStyle: event.target.value as VoiceStyle })}
+                >
+                  {Object.entries(VOICE_STYLE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="mt-3 grid gap-1 text-xs font-black uppercase tracking-wide text-slate-500">
+                Explanation language
+                <select
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold normal-case text-slate-800"
+                  value={voicePreferences.languageMode}
+                  onChange={(event) => updateVoicePreferences({ languageMode: event.target.value as VoiceLanguageMode })}
+                >
+                  {Object.entries(VOICE_LANGUAGE_MODE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value} disabled={voicePreferences.language === "en-IN" && value !== "english-only"}>
+                      {label}
                     </option>
                   ))}
                 </select>
               </label>
               <label className="mt-3 grid gap-1 text-xs font-black uppercase tracking-wide text-slate-500">
                 Speed
-                <select className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold normal-case text-slate-800" value={voiceTone} onChange={(event) => setVoiceTone(event.target.value as VoiceTone)}>
-                  {Object.keys(voiceToneSettings).map((item) => (
-                    <option key={item} value={item}>
-                      {item}
+                <select
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold normal-case text-slate-800"
+                  value={voicePreferences.speed}
+                  onChange={(event) => updateVoicePreferences({ speed: event.target.value as VoiceSpeed })}
+                >
+                  {Object.entries(VOICE_SPEED_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
                     </option>
                   ))}
                 </select>
               </label>
-              <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">Play uses this voice automatically for each visual step.</p>
+              <label className="mt-3 grid gap-1 text-xs font-black uppercase tracking-wide text-slate-500">
+                Explanation depth
+                <select
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold normal-case text-slate-800"
+                  value={voicePreferences.explanationDepth}
+                  onChange={(event) => updateVoicePreferences({ explanationDepth: event.target.value as ExplanationDepth })}
+                >
+                  <option value="Quick">Quick</option>
+                  <option value="Standard">Standard</option>
+                  <option value="Detailed">Detailed</option>
+                </select>
+              </label>
+              <label className="mt-3 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-500">
+                <input type="checkbox" checked={showTeacherNotes} onChange={(event) => setShowTeacherNotes(event.target.checked)} />
+                Show teacher notes
+              </label>
+              <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">
+                Play synchronizes an AI-generated neural teacher voice with every cinematic beat.
+              </p>
             </div>
           )}
         </div>
@@ -463,18 +672,27 @@ function AnimatedVisualTeacher({ lesson, grade, board, subject, chapter, selecte
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[260px_1fr]">
         <aside className="rounded-2xl bg-slate-50 p-4">
-          <h3 className="text-sm font-black text-slate-700">{lesson.lessonScope === "chapter" ? "Chapter path" : "Animated scenes"}</h3>
+          <h3 className="text-sm font-black text-slate-700">{lesson.lessonScope === "chapter" ? "Chapter path" : "Cinematic scenes"}</h3>
           <div className="mt-3 space-y-2">
-            {conceptGroups.map((group) => (
-              <button
-                key={`${group.conceptNo}-${group.conceptTitle}`}
-                onClick={() => chooseScene(group.startIndex)}
-                className={`w-full rounded-2xl px-3 py-3 text-left text-sm font-black ${safeSceneIndex >= group.startIndex && safeSceneIndex < group.startIndex + group.count ? "bg-purple-600 text-white" : "bg-white text-slate-600"}`}
-              >
-                <span className="block text-xs opacity-75">{group.conceptNo <= 0 ? "Scene" : `Concept ${group.conceptNo}`}</span>
-                {group.conceptTitle}
-              </button>
-            ))}
+            {conceptGroups.map((group) => {
+              const active = safeSceneIndex >= group.startIndex && safeSceneIndex < group.startIndex + group.count;
+              const complete = safeSceneIndex >= group.startIndex + group.count;
+              return (
+                <button
+                  key={`${group.conceptNo}-${group.conceptTitle}`}
+                  onClick={() => chooseScene(group.startIndex)}
+                  className={`flex w-full items-start gap-2 rounded-2xl px-3 py-3 text-left text-sm font-black ${active ? "bg-purple-600 text-white" : "bg-white text-slate-600"}`}
+                >
+                  <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${active ? "bg-white/20" : complete ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                    {complete ? <Check className="h-3.5 w-3.5" /> : group.conceptNo > 0 ? group.conceptNo : group.startIndex + 1}
+                  </span>
+                  <span>
+                    <span className="block text-xs opacity-75">{group.conceptNo <= 0 ? "Scene" : `Concept ${group.conceptNo}`}</span>
+                    {group.conceptTitle}
+                  </span>
+                </button>
+              );
+            })}
           </div>
           <div className="mt-5 space-y-2">
             {sceneEntries.map((entry, index) => (
@@ -494,34 +712,75 @@ function AnimatedVisualTeacher({ lesson, grade, board, subject, chapter, selecte
           <article className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-slate-900 px-5 py-4 text-white">
               <div>
-                <p className="text-xs font-black uppercase tracking-wide text-purple-200">{sceneEntry?.conceptTitle || scene.sceneType}</p>
+                <p className="text-xs font-black uppercase tracking-wide text-amber-200">{sceneEntry?.conceptTitle || scene.sceneType}</p>
                 <h3 className="mt-1 text-xl font-black">{scene.title}</h3>
+                {(scene.setting || scene.teacherIntent) && (
+                  <p className="mt-1 max-w-3xl text-xs font-semibold leading-5 text-slate-300">
+                    {scene.setting || scene.teacherIntent}
+                  </p>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black">Scene {safeSceneIndex + 1} of {scenes.length}</span>
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black">Step {safeStepIndex + 1} of {steps.length}</span>
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black">Beat {safeStepIndex + 1} of {steps.length}</span>
               </div>
             </div>
 
-            <div className="grid gap-0 2xl:grid-cols-[1fr_320px]">
-              <section className="min-h-[500px] bg-gradient-to-br from-slate-900 via-slate-800 to-purple-950 p-5">
-                <AnimatedSceneBoard key={`${safeSceneIndex}-${safeStepIndex}-${playRequest}`} scene={scene} stepIndex={safeStepIndex} />
+            <div className="grid gap-0 2xl:grid-cols-[minmax(0,1fr)_360px]">
+              <section className="min-h-[620px] bg-slate-950 p-3 sm:p-5">
+                <AnimatedSceneBoard
+                  key={`${safeSceneIndex}-${safeStepIndex}-${playRequest}`}
+                  scene={scene}
+                  steps={steps}
+                  step={step}
+                  stepIndex={safeStepIndex}
+                  playing={playing}
+                />
               </section>
               <section className="bg-white p-5">
                 <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
                   <Volume2 className="h-4 w-4" /> Synced teacher narration
                 </div>
-                <p className="mt-4 text-sm font-semibold leading-6 text-slate-500">{scene.teacherScript}</p>
-                <div className="mt-4 rounded-2xl bg-slate-50 p-4">
-                  <div className="text-xs font-black uppercase tracking-wide text-slate-500">Current step voice</div>
-                  <p className="mt-2 text-lg font-black leading-7 text-slate-950">{step.narration}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-800">
+                    {INDIAN_VOICE_CONFIG[voicePreferences.language].label}
+                  </span>
+                  {voiceStatus ? (
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                      {voiceStatus.provider} · {voiceStatus.voiceName}{voiceStatus.cached ? " · cached" : ""}
+                    </span>
+                  ) : null}
                 </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black uppercase text-purple-700">{step.beatType || step.action}</span>
+                  {step.highlight ? <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">Focus: {step.highlight}</span> : null}
+                </div>
+                <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+                  <div className="text-xs font-black uppercase tracking-wide text-slate-500">Current beat</div>
+                  <p className="mt-2 text-lg font-black leading-7 text-slate-950">{getStepTitle(step)}</p>
+                  {showTeacherNotes && (
+                    <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+                      {spokenNarration || getStepNarration(step, scene)}
+                    </p>
+                  )}
+                </div>
+                {step.checkForUnderstanding ? (
+                  <BeatCheck
+                    key={`${safeSceneIndex}-${safeStepIndex}`}
+                    check={step.checkForUnderstanding}
+                    onCorrect={() => moveNext(autoPlay)}
+                    onWrong={() => {
+                      setAutoPlay(false);
+                      moveNext(true);
+                    }}
+                  />
+                ) : null}
                 <div className="mt-4 space-y-2">
                   {steps.map((item, index) => (
                     <button
                       key={`${item.action}-${index}`}
                       onClick={() => {
-                        stopSpeech(false);
+                        stopNarration(false);
                         setStepIndex(index);
                         setCoachMode(null);
                         setPlaying(autoPlay);
@@ -530,7 +789,7 @@ function AnimatedVisualTeacher({ lesson, grade, board, subject, chapter, selecte
                       className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-black ${index === safeStepIndex ? "bg-purple-600 text-white" : "bg-slate-100 text-slate-600"}`}
                     >
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-current/10">{index + 1}</span>
-                      {item.action}
+                      <span className="min-w-0 truncate">{getStepTitle(item)}</span>
                     </button>
                   ))}
                 </div>
@@ -545,14 +804,14 @@ function AnimatedVisualTeacher({ lesson, grade, board, subject, chapter, selecte
             <button onClick={pauseLesson} className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-black text-slate-700">
               <Pause className="h-4 w-4" /> Pause
             </button>
-            <button onClick={replayScene} className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-black text-slate-700">
+            <button onClick={replayCurrentBeat} className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-black text-slate-700">
               <RotateCcw className="h-4 w-4" /> Replay
             </button>
             <button onClick={goPreviousStep} className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-black text-slate-700">
-              <SkipBack className="h-4 w-4" /> Previous step
+              <SkipBack className="h-4 w-4" /> Previous beat
             </button>
             <button onClick={goNextStep} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-sm font-black text-white">
-              Next step <SkipForward className="h-4 w-4" />
+              Next beat <SkipForward className="h-4 w-4" />
             </button>
             <label className="ml-auto inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700">
               <input type="checkbox" checked={autoPlay} onChange={(event) => toggleAutoPlay(event.target.checked)} />
@@ -568,16 +827,16 @@ function AnimatedVisualTeacher({ lesson, grade, board, subject, chapter, selecte
           )}
 
           <div className="flex flex-wrap gap-2">
-            <CoachButton mode="again" activeMode={coachMode} onClick={setCoachMode} icon={<RefreshCw className="h-4 w-4" />}>
-              Explain again
+            <CoachButton mode="again" activeMode={coachMode} onClick={chooseCoachMode} icon={<RefreshCw className="h-4 w-4" />}>
+              Explain again visually
             </CoachButton>
-            <CoachButton mode="example" activeMode={coachMode} onClick={setCoachMode} icon={<Lightbulb className="h-4 w-4" />}>
-              Show another visual
+            <CoachButton mode="slower" activeMode={coachMode} onClick={chooseCoachMode} icon={<Gauge className="h-4 w-4" />}>
+              Show slower
             </CoachButton>
-            <CoachButton mode="question" activeMode={coachMode} onClick={setCoachMode} icon={<CircleHelp className="h-4 w-4" />}>
-              Ask me a question
+            <CoachButton mode="example" activeMode={coachMode} onClick={chooseCoachMode} icon={<Lightbulb className="h-4 w-4" />}>
+              Give another example
             </CoachButton>
-            <CoachButton mode="practice" activeMode={coachMode} onClick={setCoachMode} icon={<PlusCircle className="h-4 w-4" />}>
+            <CoachButton mode="practice" activeMode={coachMode} onClick={chooseCoachMode} icon={<PlusCircle className="h-4 w-4" />}>
               Practice now
             </CoachButton>
           </div>
@@ -638,9 +897,10 @@ function getConceptGroups(sceneEntries: SceneEntry[], lesson: VisualLesson) {
 function pickPreferredVoice(voices: SpeechSynthesisVoice[], language: string) {
   const preferredNames = ["Google UK English Female", "Google US English", "Microsoft Zira", "Microsoft Jenny", "Microsoft Aria", "Samantha"];
   return (
-    voices.find((voice) => preferredNames.some((name) => voice.name.includes(name))) ||
-    voices.find((voice) => voice.lang === language && /female|zira|jenny|aria|samantha/i.test(voice.name)) ||
+    voices.find((voice) => voice.lang === language && /female|zira|jenny|aria|samantha|shruti|swara|sapna|pallavi|neerja/i.test(voice.name)) ||
+    voices.find((voice) => voice.lang === language) ||
     voices.find((voice) => voice.lang.startsWith(language.split("-")[0])) ||
+    voices.find((voice) => preferredNames.some((name) => voice.name.includes(name))) ||
     voices.find((voice) => voice.lang.startsWith("en"))
   );
 }
@@ -654,30 +914,331 @@ function toNaturalNarration(text: string) {
     .trim();
 }
 
-function estimateNarrationMs(text: string, tone: VoiceTone) {
+function estimateNarrationMs(text: string, speed: VoiceSpeed) {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
-  const wordsPerMinute = 145 * voiceToneSettings[tone].rate;
+  const wordsPerMinute = 145 * browserVoiceSettings[speed].rate;
   return Math.max(2400, Math.round((words / wordsPerMinute) * 60_000) + 600);
 }
 
-function AnimatedSceneBoard({ scene, stepIndex }: { scene: VisualLessonScene; stepIndex: number }) {
-  const visual = mergeStepVisuals(scene.steps, stepIndex);
+function getPlayableSteps(scene: VisualLessonScene): VisualLessonStep[] {
+  if (scene.beats?.length) {
+    return scene.beats.map((beat) => ({
+      stepId: beat.beatId,
+      action: beat.beatType,
+      beatType: beat.beatType,
+      title: beat.boardText,
+      shortBoardText: beat.boardText,
+      narration: beat.teacherNarration,
+      teacherNarration: beat.teacherNarration,
+      visualType: beat.visual.visualType,
+      visual: beat.visual.visualData,
+      visualData: beat.visual.visualData,
+      animation: beat.animation,
+      camera: beat.camera,
+      highlight: beat.highlight,
+      soundCue: beat.soundCue,
+      checkForUnderstanding: beat.checkForUnderstanding,
+    }));
+  }
+  if (scene.steps.length) return scene.steps;
+  return [
+    {
+      action: "explain",
+      title: "Teacher explanation",
+      shortBoardText: scene.title,
+      narration: scene.teacherScript,
+      teacherNarration: scene.teacherScript,
+      visual: {},
+      visualData: {},
+    },
+  ];
+}
+
+function narrationForDepth(step: VisualLessonStep, scene: VisualLessonScene, depth: ExplanationDepth) {
+  const narration = getStepNarration(step, scene);
+  if (depth === "Detailed") return narration;
+  const limit = depth === "Standard" ? 58 : 28;
+  const words = narration.split(/\s+/).filter(Boolean);
+  if (words.length <= limit) return narration;
+  return `${words.slice(0, limit).join(" ")}...`;
+}
+
+function toVoiceIdentifier(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || "visual-lesson";
+}
+
+function getStepNarration(step: VisualLessonStep, scene: VisualLessonScene) {
+  return (step.teacherNarration || step.narration || scene.teacherScript || "").trim();
+}
+
+function getStepShortText(step: VisualLessonStep, scene: VisualLessonScene) {
+  return (step.shortBoardText || step.title || step.action || scene.title || "").trim();
+}
+
+function getStepTitle(step: VisualLessonStep) {
+  return (step.title || step.shortBoardText || step.action || "Teacher step").trim();
+}
+
+function AnimatedSceneBoard({
+  scene,
+  steps,
+  step,
+  stepIndex,
+  playing,
+}: {
+  scene: VisualLessonScene;
+  steps: VisualLessonStep[];
+  step: VisualLessonStep;
+  stepIndex: number;
+  playing: boolean;
+}) {
+  const reducedMotion = useReducedMotion();
+  const visual = mergeStepVisuals(steps, stepIndex);
+  const visualType = step.visualType || scene.sceneType;
+  const camera = cinematicCameraMotion(step, Boolean(reducedMotion) || !playing);
   return (
-    <div className="flex min-h-[460px] items-center justify-center rounded-3xl border border-white/10 bg-white/95 p-5 shadow-2xl">
-      {scene.sceneType === "fraction-circle" && <FractionCircleAnimator visual={visual} />}
-      {scene.sceneType === "fraction-bar" && <FractionBarAnimator visual={visual} />}
-      {scene.sceneType === "number-line" && <AnimatedNumberLine visual={visual} />}
-      {scene.sceneType === "comparison-board" && <ComparisonAnimator visual={visual} />}
-      {scene.sceneType === "formula-board" && <FormulaBoardAnimator scene={scene} stepIndex={stepIndex} visual={visual} />}
-      {scene.sceneType === "table-board" && <TableBoardAnimator visual={visual} />}
-      {scene.sceneType === "particle-motion-board" && <ParticleMotionBoardAnimator visual={visual} />}
-      {scene.sceneType === "states-of-matter-board" && <StatesOfMatterBoardAnimator visual={visual} />}
-      {scene.sceneType === "heating-curve-board" && <HeatingCurveBoardAnimator visual={visual} />}
-      {scene.sceneType === "evaporation-board" && <EvaporationBoardAnimator visual={visual} />}
-      {scene.sceneType === "force-arrows" && <ForceArrowsAnimator visual={visual} />}
-      {scene.sceneType === "motion-track" && <MotionTrackAnimator visual={visual} />}
-      {scene.sceneType === "diagram-label" && <DiagramLabelAnimator visual={visual} />}
-      {scene.sceneType === "quiz-visual" && <QuizSceneAnimator scene={scene} visual={visual} />}
+    <div className="relative flex min-h-[580px] items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-[#07111f] p-4 shadow-2xl sm:p-6">
+      <div className="pointer-events-none absolute inset-0 opacity-70">
+        <div className="absolute inset-x-0 top-0 h-24 bg-white/[0.035]" />
+        <div className="absolute bottom-0 left-0 h-40 w-2/3 bg-cyan-300/[0.035]" />
+        <div className="absolute right-0 top-20 h-72 w-1/2 bg-amber-300/[0.025]" />
+      </div>
+      <div className="absolute left-5 top-5 z-20 max-w-[78%] rounded-2xl border border-white/10 bg-slate-950/90 px-4 py-3 text-sm font-black text-white shadow-lg backdrop-blur">
+        <span className="mr-2 text-amber-300">{String(stepIndex + 1).padStart(2, "0")}</span>
+        {getStepShortText(step, scene)}
+      </div>
+      {step.highlight ? (
+        <div className="absolute bottom-5 right-5 z-20 inline-flex max-w-[70%] items-center gap-2 rounded-full border border-cyan-200/20 bg-cyan-100/10 px-3 py-2 text-xs font-black text-cyan-100 backdrop-blur">
+          <Sparkles className="h-3.5 w-3.5" /> Focus on {step.highlight}
+        </div>
+      ) : null}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={`${scene.sceneId || scene.title}-${step.stepId || stepIndex}`}
+          className="relative z-10 flex w-full items-center justify-center"
+          initial={camera.initial}
+          animate={camera.animate}
+          exit={{ opacity: 0, scale: 0.98 }}
+          transition={camera.transition}
+        >
+          <CinematicVisual scene={scene} visualType={visualType} visual={visual} stepIndex={stepIndex} playing={playing} />
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function CinematicVisual({
+  scene,
+  visualType,
+  visual,
+  stepIndex,
+  playing,
+}: {
+  scene: VisualLessonScene;
+  visualType: string;
+  visual: Record<string, unknown>;
+  stepIndex: number;
+  playing: boolean;
+}) {
+  if (["fraction-circle", "fraction-pizza-cinematic"].includes(visualType)) return <FractionCircleAnimator visual={visual} />;
+  if (["fraction-bar", "fraction-bar-cinematic"].includes(visualType)) return <FractionBarAnimator visual={visual} />;
+  if (["number-line", "number-line-cinematic"].includes(visualType)) return <AnimatedNumberLine visual={visual} />;
+  if (["comparison-board", "comparison-cinematic"].includes(visualType)) return <ComparisonAnimator visual={visual} />;
+  if (visualType === "rational-irrational-decimal-scene") return <RationalIrrationalDecimalAnimator visual={visual} playing={playing} />;
+  if (visualType === "matter-real-world-scene") return <MatterRealWorldAnimator visual={visual} playing={playing} />;
+  if (["particle-motion-board", "particle-world"].includes(visualType)) return <ParticleMotionBoardAnimator visual={visual} playing={playing} />;
+  if (["states-of-matter-board", "states-of-matter-cinematic"].includes(visualType)) return <StatesOfMatterBoardAnimator visual={visual} playing={playing} />;
+  if (["heating-curve-board", "heating-transformation-scene"].includes(visualType)) return <HeatingCurveBoardAnimator visual={visual} />;
+  if (["evaporation-board", "evaporation-cinematic", "sublimation-cinematic"].includes(visualType)) return <EvaporationBoardAnimator visual={visual} playing={playing} />;
+  if (["concept-map-cinematic", "concept-map"].includes(visualType)) return <ConceptMapAnimator scene={scene} visual={visual} />;
+  if (["quiz-visual", "quiz-cinematic"].includes(visualType)) return <QuizSceneAnimator scene={scene} visual={visual} />;
+  if (visualType === "force-arrows") return <ForceArrowsAnimator visual={visual} />;
+  if (visualType === "motion-track") return <MotionTrackAnimator visual={visual} />;
+  if (visualType === "table-board") return <TableBoardAnimator visual={visual} />;
+  if (visualType === "formula-board") return <FormulaBoardAnimator scene={scene} stepIndex={stepIndex} visual={visual} />;
+  return <DiagramLabelAnimator visual={{ diagram: scene.title, labels: getStringArray(visual, "labels"), ...visual }} />;
+}
+
+function cinematicCameraMotion(step: VisualLessonStep, disabled: boolean) {
+  const duration = clamp((step.camera?.durationMs || step.animation?.durationMs || 900) / 1000, 0.2, 3);
+  if (disabled) {
+    return {
+      initial: { opacity: 1, x: 0, y: 0, scale: 1, rotate: 0, filter: "blur(0px)" },
+      animate: { opacity: 1, x: 0, y: 0, scale: 1, rotate: 0, filter: "blur(0px)" },
+      transition: { duration: 0 },
+    };
+  }
+  const movement = step.camera?.movement || "focus";
+  const initialByMovement = {
+    none: { opacity: 0.7, x: 0, y: 0, scale: 1, rotate: 0, filter: "blur(0px)" },
+    pan: { opacity: 0.65, x: -56, y: 0, scale: 1.02, rotate: 0, filter: "blur(1px)" },
+    "zoom-in": { opacity: 0.65, x: 0, y: 0, scale: 0.84, rotate: 0, filter: "blur(2px)" },
+    "zoom-out": { opacity: 0.65, x: 0, y: 0, scale: 1.14, rotate: 0, filter: "blur(2px)" },
+    follow: { opacity: 0.7, x: -38, y: 18, scale: 1.05, rotate: 0, filter: "blur(1px)" },
+    tilt: { opacity: 0.7, x: 0, y: 24, scale: 1.02, rotate: -2.5, filter: "blur(1px)" },
+    focus: { opacity: 0.55, x: 0, y: 0, scale: 0.92, rotate: 0, filter: "blur(5px)" },
+  } as const;
+  return {
+    initial: initialByMovement[movement],
+    animate: { opacity: 1, x: 0, y: 0, scale: 1, rotate: 0, filter: "blur(0px)" },
+    transition: { duration, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
+  };
+}
+
+function BeatCheck({
+  check,
+  onCorrect,
+  onWrong,
+}: {
+  check: NonNullable<VisualLessonStep["checkForUnderstanding"]>;
+  onCorrect: () => void;
+  onWrong: () => void;
+}) {
+  const [selected, setSelected] = useState("");
+  const options = check.options?.length ? check.options : ["I understand", "Explain again"];
+  const correct = check.answer || options[0];
+  const isCorrect = selected === correct;
+
+  function choose(option: string) {
+    setSelected(option);
+    if (option !== correct) {
+      window.setTimeout(onWrong, 900);
+      return;
+    }
+    window.setTimeout(onCorrect, 900);
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-blue-700">
+        <CircleHelp className="h-4 w-4" /> Quick check
+      </div>
+      <p className="mt-2 text-sm font-black leading-6 text-blue-950">{check.question}</p>
+      <div className="mt-3 grid gap-2">
+        {options.map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => choose(option)}
+            className={`rounded-xl border px-3 py-2 text-left text-xs font-black ${
+              selected && option === correct
+                ? "border-emerald-300 bg-emerald-100 text-emerald-900"
+                : selected === option
+                  ? "border-red-300 bg-red-50 text-red-900"
+                  : "border-white bg-white text-slate-700"
+            }`}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+      {selected ? (
+        <p className={`mt-3 rounded-xl p-3 text-xs font-bold leading-5 ${isCorrect ? "bg-emerald-100 text-emerald-900" : "bg-white text-blue-950"}`}>
+          {isCorrect ? "Correct. The visual and your reasoning match." : check.remediation || `Look again at the highlighted change. The correct answer is ${correct}.`}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function MatterRealWorldAnimator({ visual, playing }: { visual: Record<string, unknown>; playing: boolean }) {
+  const requestedActive = getString(visual, "activeObject", getString(visual, "label", "")).toLowerCase();
+  const objects = [
+    { label: "Book", icon: <BookOpen className="h-10 w-10" />, tone: "bg-amber-100 text-amber-900" },
+    { label: "Stone", icon: <Box className="h-10 w-10" />, tone: "bg-slate-200 text-slate-800" },
+    { label: "Water", icon: <Droplets className="h-10 w-10" />, tone: "bg-cyan-100 text-cyan-900" },
+    { label: "Balloon", icon: <Cloud className="h-10 w-10" />, tone: "bg-pink-100 text-pink-900" },
+    { label: "Air", icon: <Cloud className="h-10 w-10" />, tone: "bg-blue-100 text-blue-900" },
+    { label: "Perfume", icon: <Sparkles className="h-10 w-10" />, tone: "bg-violet-100 text-violet-900" },
+  ];
+  const active = objects.some((object) => requestedActive.includes(object.label.toLowerCase())) ? requestedActive : "";
+  return (
+    <div className="w-full max-w-6xl">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        {objects.map((object, index) => {
+          const selected = !active || active.includes(object.label.toLowerCase());
+          return (
+            <motion.div
+              key={object.label}
+              animate={{ y: playing && selected ? [0, -8, 0] : 0, opacity: selected ? 1 : 0.48 }}
+              transition={{ duration: 2.4, delay: index * 0.08, repeat: playing && selected ? Infinity : 0, repeatDelay: 1.2 }}
+              className={`rounded-3xl p-4 text-center shadow-xl ring-1 ring-white/20 ${object.tone}`}
+            >
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/80 shadow-inner">{object.icon}</div>
+              <div className="mt-3 text-lg font-black">{object.label}</div>
+              <div className="mt-3 grid gap-2 text-xs font-black">
+                <span className="inline-flex items-center justify-center gap-1 rounded-full bg-white/80 px-2 py-1"><Weight className="h-3.5 w-3.5" /> Has mass</span>
+                <span className="inline-flex items-center justify-center gap-1 rounded-full bg-white/80 px-2 py-1"><Maximize2 className="h-3.5 w-3.5" /> Takes space</span>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+      <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-cyan-200/20 bg-cyan-100/10 px-5 py-4 text-center text-sm font-black text-cyan-50">
+        Matter has mass and occupies space, even when it cannot be seen.
+      </div>
+    </div>
+  );
+}
+
+function RationalIrrationalDecimalAnimator({ visual, playing }: { visual: Record<string, unknown>; playing: boolean }) {
+  const irrational = getString(visual, "irrationalDecimal", "1.41421356237...");
+  const rational = getString(visual, "rationalDecimal", "0.333333...");
+  return (
+    <div className="grid w-full max-w-5xl gap-4 lg:grid-cols-2">
+      <div className="overflow-hidden rounded-3xl bg-emerald-50 p-6 text-emerald-950 shadow-xl">
+        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Rational pattern</div>
+        <div className="mt-5 text-4xl font-black">1 / 3</div>
+        <motion.div className="mt-5 whitespace-nowrap text-2xl font-black" animate={{ x: playing ? [0, -32, 0] : 0 }} transition={{ duration: 2.2, repeat: playing ? Infinity : 0 }}>
+          {rational}
+        </motion.div>
+        <div className="mt-4 rounded-xl bg-white/80 p-3 text-sm font-black">The repeating block can be described exactly.</div>
+      </div>
+      <div className="overflow-hidden rounded-3xl bg-violet-50 p-6 text-violet-950 shadow-xl">
+        <div className="text-xs font-black uppercase tracking-wide text-violet-700">Irrational expansion</div>
+        <div className="mt-5 text-4xl font-black">√2</div>
+        <motion.div className="mt-5 whitespace-nowrap text-2xl font-black" animate={{ x: playing ? [0, -96] : 0 }} transition={{ duration: 5, repeat: playing ? Infinity : 0, repeatType: "loop", ease: "linear" }}>
+          {irrational} 09504880168...
+        </motion.div>
+        <div className="mt-4 rounded-xl bg-white/80 p-3 text-sm font-black">It neither terminates nor settles into a repeating block.</div>
+      </div>
+    </div>
+  );
+}
+
+function ConceptMapAnimator({ scene, visual }: { scene: VisualLessonScene; visual: Record<string, unknown> }) {
+  const nodes = getStringArray(visual, "labels");
+  const concepts = nodes.length
+    ? nodes.slice(0, 8)
+    : [scene.title, scene.teacherIntent || "", scene.setting || "", ...getStringArray(visual, "keyPoints")].filter(Boolean).slice(0, 8);
+  return (
+    <div className="relative h-[460px] w-full max-w-5xl">
+      <div className="absolute left-1/2 top-1/2 z-10 flex h-32 w-32 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-amber-300 p-4 text-center text-base font-black text-slate-950 shadow-2xl">
+        Chapter map
+      </div>
+      {concepts.map((concept, index) => {
+        const angle = (index / Math.max(1, concepts.length)) * Math.PI * 2 - Math.PI / 2;
+        const x = 50 + Math.cos(angle) * 37;
+        const y = 50 + Math.sin(angle) * 37;
+        return (
+          <motion.div
+            key={`${concept}-${index}`}
+            initial={{ opacity: 0, scale: 0.6, x: "-50%", y: "-50%" }}
+            animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+            transition={{ delay: index * 0.12, duration: 0.45 }}
+            className="absolute z-10 max-w-44 rounded-2xl border border-white/15 bg-white px-4 py-3 text-center text-xs font-black leading-5 text-slate-900 shadow-xl"
+            style={{ left: `${x}%`, top: `${y}%` }}
+          >
+            {concept}
+          </motion.div>
+        );
+      })}
+      <div className="absolute inset-16 rounded-full border border-dashed border-cyan-200/35" />
     </div>
   );
 }
@@ -1113,13 +1674,15 @@ function TableBoardAnimator({ visual }: { visual: Record<string, unknown> }) {
   );
 }
 
-function ParticleMotionBoardAnimator({ visual }: { visual: Record<string, unknown> }) {
+function ParticleMotionBoardAnimator({ visual, playing }: { visual: Record<string, unknown>; playing: boolean }) {
+  const reducedMotion = useReducedMotion();
   const state = getString(visual, "state", "gas");
   const particles = clamp(Math.round(getNumber(visual, "particles", 18)), 6, 32);
   const guestParticles = clamp(Math.round(getNumber(visual, "guestParticles", 0)), 0, 12);
-  const motion = getString(visual, "motion", state === "gas" ? "fast" : state === "liquid" ? "slow" : "still");
+  const motionSpeed = getString(visual, "motion", state === "gas" ? "fast" : state === "liquid" ? "slow" : "still");
   const attraction = getString(visual, "attraction", "");
-  const particleClass = motion === "fast" ? "animate-bounce" : motion === "medium" || motion === "slow" ? "animate-pulse" : "";
+  const movement = reducedMotion || !playing || motionSpeed === "still" ? 0 : motionSpeed === "fast" ? 20 : motionSpeed === "medium" ? 11 : 6;
+  const duration = motionSpeed === "fast" ? 1.8 : motionSpeed === "medium" ? 2.8 : 4;
 
   return (
     <div className="grid w-full max-w-5xl gap-5 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-center">
@@ -1128,20 +1691,24 @@ function ParticleMotionBoardAnimator({ visual }: { visual: Record<string, unknow
         {Array.from({ length: particles }).map((_, index) => {
           const position = particlePosition(index, particles, state);
           return (
-            <span
+            <motion.span
               key={index}
-              className={`absolute h-5 w-5 rounded-full bg-purple-400 shadow-lg shadow-purple-500/30 transition-all duration-700 ${particleClass}`}
-              style={{ left: `${position.x}%`, top: `${position.y}%`, animationDelay: `${(index % 5) * 120}ms` }}
+              className="absolute h-5 w-5 rounded-full bg-purple-400 shadow-lg shadow-purple-500/30"
+              style={{ left: `${position.x}%`, top: `${position.y}%` }}
+              animate={{ x: [0, movement * ((index % 3) - 1), 0], y: [0, movement * (((index + 1) % 3) - 1), 0] }}
+              transition={{ duration: duration + (index % 4) * 0.25, repeat: playing ? Infinity : 0, ease: "easeInOut" }}
             />
           );
         })}
         {Array.from({ length: guestParticles }).map((_, index) => {
           const position = particlePosition(index + 7, Math.max(guestParticles, 8), "liquid");
           return (
-            <span
+            <motion.span
               key={`guest-${index}`}
               className="absolute h-4 w-4 rounded-full bg-amber-300 shadow-lg shadow-amber-400/40 transition-all duration-700"
               style={{ left: `${position.x}%`, top: `${position.y}%` }}
+              animate={{ x: reducedMotion || !playing ? 0 : [0, 9, -5, 0], y: reducedMotion || !playing ? 0 : [0, -12, 6, 0] }}
+              transition={{ duration: 3.2 + (index % 3) * 0.4, repeat: playing ? Infinity : 0, ease: "easeInOut" }}
             />
           );
         })}
@@ -1154,7 +1721,7 @@ function ParticleMotionBoardAnimator({ visual }: { visual: Record<string, unknow
         <div className="text-xs font-black uppercase tracking-wide text-purple-600">Particle board</div>
         <div className="mt-4 grid gap-3 text-sm font-black text-slate-700">
           <InfoPill label="State" value={state} />
-          <InfoPill label="Motion" value={motion} />
+          <InfoPill label="Motion" value={motionSpeed} />
           {attraction && <InfoPill label="Attraction" value={attraction} />}
           {getString(visual, "temperature") && <InfoPill label="Temperature" value={getString(visual, "temperature")} />}
         </div>
@@ -1163,14 +1730,14 @@ function ParticleMotionBoardAnimator({ visual }: { visual: Record<string, unknow
   );
 }
 
-function StatesOfMatterBoardAnimator({ visual }: { visual: Record<string, unknown> }) {
+function StatesOfMatterBoardAnimator({ visual, playing }: { visual: Record<string, unknown>; playing: boolean }) {
   const activeState = getString(visual, "activeState", "solid");
   return (
     <div className="w-full max-w-6xl">
       <div className="grid gap-4 lg:grid-cols-3">
-        <StateCard state="solid" label={getString(visual, "solidLabel", "solid")} description="Fixed shape, fixed volume, tightly packed particles" active={activeState === "solid"} />
-        <StateCard state="liquid" label={getString(visual, "liquidLabel", "liquid")} description="Fixed volume, takes container shape, particles slide" active={activeState === "liquid"} />
-        <StateCard state="gas" label={getString(visual, "gasLabel", "gas")} description="No fixed shape or volume, particles far apart" active={activeState === "gas"} />
+        <StateCard state="solid" label={getString(visual, "solidLabel", "solid")} description="Fixed shape, fixed volume, tightly packed particles" active={activeState === "solid"} playing={playing} />
+        <StateCard state="liquid" label={getString(visual, "liquidLabel", "liquid")} description="Fixed volume, takes container shape, particles slide" active={activeState === "liquid"} playing={playing} />
+        <StateCard state="gas" label={getString(visual, "gasLabel", "gas")} description="No fixed shape or volume, particles far apart" active={activeState === "gas"} playing={playing} />
       </div>
     </div>
   );
@@ -1221,7 +1788,8 @@ function HeatingCurveBoardAnimator({ visual }: { visual: Record<string, unknown>
   );
 }
 
-function EvaporationBoardAnimator({ visual }: { visual: Record<string, unknown> }) {
+function EvaporationBoardAnimator({ visual, playing }: { visual: Record<string, unknown>; playing: boolean }) {
+  const reducedMotion = useReducedMotion();
   const mode = getString(visual, "mode", "evaporation");
   const vaporParticles = clamp(Math.round(getNumber(visual, "vaporParticles", 6)), 1, 16);
   const isSublimation = mode === "sublimation";
@@ -1232,14 +1800,16 @@ function EvaporationBoardAnimator({ visual }: { visual: Record<string, unknown> 
       </div>
       {Boolean(visual.wind) && <div className="absolute right-8 top-20 h-3 w-40 rounded-full bg-cyan-400 after:absolute after:right-[-2px] after:top-1/2 after:h-7 after:w-7 after:-translate-y-1/2 after:rotate-45 after:border-r-8 after:border-t-8 after:border-cyan-400" />}
       {Boolean(visual.heat) && <div className="absolute bottom-10 left-1/2 flex -translate-x-1/2 gap-3 text-4xl font-black text-amber-500">↑ ↑ ↑</div>}
-      <div className={`absolute bottom-20 left-1/2 -translate-x-1/2 ${isSublimation ? "h-20 w-56 rounded-3xl bg-violet-200 text-violet-950" : `${Boolean(visual.wideSurface) ? "h-20 w-[520px]" : "h-20 w-96"} rounded-[50%] bg-blue-400 text-blue-950`} flex items-center justify-center text-lg font-black shadow-xl transition-all duration-700`}>
+      <div className={`absolute bottom-20 left-1/2 -translate-x-1/2 ${isSublimation ? "h-20 w-56 max-w-[80%] rounded-3xl bg-violet-200 text-violet-950" : `${Boolean(visual.wideSurface) ? "h-20 w-[88%] max-w-[520px]" : "h-20 w-[78%] max-w-96"} rounded-[50%] bg-blue-400 text-blue-950`} flex items-center justify-center text-lg font-black shadow-xl transition-all duration-700`}>
         {isSublimation ? getString(visual, "solidLabel", "solid") : "water surface"}
       </div>
       {Array.from({ length: vaporParticles }).map((_, index) => (
-        <span
+        <motion.span
           key={index}
           className="absolute h-4 w-4 rounded-full bg-white shadow-lg ring-2 ring-cyan-200 transition-all duration-700"
           style={{ left: `${22 + ((index * 13) % 56)}%`, bottom: `${150 + ((index * 29) % 190)}px` }}
+          animate={reducedMotion || !playing ? undefined : { y: [30, -120], x: [0, index % 2 ? 18 : -18], opacity: [0.35, 1, 0] }}
+          transition={{ duration: 3.2 + (index % 4) * 0.35, delay: (index % 5) * 0.25, repeat: playing ? Infinity : 0, ease: "easeOut" }}
         />
       ))}
       <div className="absolute right-8 bottom-8 rounded-2xl bg-white px-4 py-2 text-sm font-black text-slate-800">
@@ -1249,23 +1819,33 @@ function EvaporationBoardAnimator({ visual }: { visual: Record<string, unknown> 
   );
 }
 
-function StateCard({ state, label, description, active }: { state: "solid" | "liquid" | "gas"; label: string; description: string; active: boolean }) {
+function StateCard({ state, label, description, active, playing }: { state: "solid" | "liquid" | "gas"; label: string; description: string; active: boolean; playing: boolean }) {
   return (
     <div className={`rounded-3xl p-4 transition-all duration-500 ${active ? "bg-purple-50 shadow-xl ring-2 ring-purple-300" : "bg-white shadow-sm ring-1 ring-slate-200"}`}>
       <div className="text-center text-xl font-black capitalize text-slate-950">{label}</div>
-      <ParticleMiniBox state={state} />
+      <ParticleMiniBox state={state} playing={playing} />
       <p className="mt-3 text-center text-sm font-bold leading-6 text-slate-600">{description}</p>
     </div>
   );
 }
 
-function ParticleMiniBox({ state }: { state: "solid" | "liquid" | "gas" }) {
+function ParticleMiniBox({ state, playing }: { state: "solid" | "liquid" | "gas"; playing: boolean }) {
+  const reducedMotion = useReducedMotion();
   const count = state === "gas" ? 9 : 16;
+  const movement = reducedMotion || !playing ? 0 : state === "gas" ? 12 : state === "liquid" ? 5 : 2;
   return (
     <div className="relative mt-4 h-44 rounded-2xl bg-slate-950">
       {Array.from({ length: count }).map((_, index) => {
         const position = particlePosition(index, count, state);
-        return <span key={index} className="absolute h-4 w-4 rounded-full bg-amber-300 transition-all duration-700" style={{ left: `${position.x}%`, top: `${position.y}%` }} />;
+        return (
+          <motion.span
+            key={index}
+            className="absolute h-4 w-4 rounded-full bg-amber-300"
+            style={{ left: `${position.x}%`, top: `${position.y}%` }}
+            animate={{ x: [0, movement * ((index % 3) - 1), 0], y: [0, movement * (((index + 1) % 3) - 1), 0] }}
+            transition={{ duration: state === "gas" ? 1.7 : 3.2, repeat: playing ? Infinity : 0, ease: "easeInOut" }}
+          />
+        );
       })}
     </div>
   );
@@ -1432,7 +2012,10 @@ function coachText(mode: CoachMode, slide: VisualLessonSlide, concept: string) {
 
 function animatedCoachText(mode: CoachMode, scene: VisualLessonScene, step: VisualLessonStep) {
   if (mode === "again") {
-    return `Watch this step again in simpler words: ${step.narration} The visual is showing one idea at a time, so focus on what changed on the board.`;
+    return `Watch this step again in simpler words: ${getStepNarration(step, scene)} The visual is showing one idea at a time, so focus on what changed on the board.`;
+  }
+  if (mode === "slower") {
+    return `Slow view: first notice ${step.highlight || getStepShortText(step, scene)}. Then compare the board before and after this beat. Nothing else changes until that one idea is clear. Use Replay when you are ready to watch the same movement again.`;
   }
   if (mode === "example") {
     return `Another visual: imagine the same action with a different object but the same rule. If the board split a pizza, try a chocolate bar. If it moved a marker, try another point on the same line.`;
@@ -1444,13 +2027,13 @@ function animatedCoachText(mode: CoachMode, scene: VisualLessonScene, step: Visu
   }
   return scene.studentQuestion
     ? `${scene.studentQuestion.question} Think first. Answer: ${scene.studentQuestion.answer}.`
-    : `Question: what changed in this step, and why does that change explain ${scene.title}?`;
+    : `Question: what changed in "${getStepShortText(step, scene)}", and why does that change explain ${scene.title}?`;
 }
 
 function mergeStepVisuals(steps: VisualLessonStep[], stepIndex: number) {
   const merged: Record<string, unknown> = {};
   steps.slice(0, stepIndex + 1).forEach((step) => {
-    Object.entries(step.visual || {}).forEach(([key, value]) => {
+    Object.entries({ ...(step.visual || {}), ...(step.visualData || {}) }).forEach(([key, value]) => {
       if ((key === "rows" || key === "markers") && Array.isArray(merged[key]) && Array.isArray(value)) {
         merged[key] = [...(merged[key] as unknown[]), ...value];
         return;

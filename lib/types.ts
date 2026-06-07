@@ -136,9 +136,66 @@ export type VisualSceneType =
   | "quiz-visual";
 
 export type VisualLessonStep = {
+  stepId?: string;
   action: string;
+  title?: string;
+  shortBoardText?: string;
   narration: string;
+  teacherNarration?: string;
+  visualType?: string;
   visual: Record<string, unknown>;
+  visualData?: Record<string, unknown>;
+  animation?: {
+    durationMs?: number;
+    sequence?: unknown[];
+  };
+  checkForUnderstanding?: {
+    question: string;
+    answer?: string;
+    options?: string[];
+    remediation?: string;
+  };
+  beatType?: CinematicBeatType;
+  camera?: CinematicCamera;
+  highlight?: string;
+  soundCue?: string;
+};
+
+export type CinematicBeatType =
+  | "intro"
+  | "zoom"
+  | "reveal"
+  | "transform"
+  | "compare"
+  | "label"
+  | "question"
+  | "correction"
+  | "recap"
+  | "practice";
+
+export type CinematicCamera = {
+  movement: "none" | "pan" | "zoom-in" | "zoom-out" | "follow" | "tilt" | "focus";
+  target: string;
+  durationMs: number;
+};
+
+export type CinematicLessonBeat = {
+  beatId: string;
+  beatType: CinematicBeatType;
+  camera: CinematicCamera;
+  visual: {
+    visualType: string;
+    visualData: Record<string, unknown>;
+  };
+  animation: {
+    durationMs: number;
+    sequence: unknown[];
+  };
+  boardText: string;
+  teacherNarration: string;
+  highlight: string;
+  soundCue?: string;
+  checkForUnderstanding?: VisualLessonStep["checkForUnderstanding"];
 };
 
 export type VisualLessonStudentQuestion = {
@@ -150,15 +207,22 @@ export type VisualLessonStudentQuestion = {
 
 export type VisualLessonScene = {
   sceneType: VisualSceneType;
+  sceneId?: string;
+  cinematicStyle?: string;
   title: string;
+  setting?: string;
+  teacherIntent?: string;
   teacherScript: string;
   steps: VisualLessonStep[];
+  beats?: CinematicLessonBeat[];
   studentQuestion?: VisualLessonStudentQuestion;
 };
 
 export type VisualLessonChapterConcept = {
   conceptNo: number;
   conceptTitle: string;
+  learningGoal?: string;
+  misconceptionToFix?: string;
   scenes: VisualLessonScene[];
 };
 
@@ -168,8 +232,14 @@ export type VisualLesson = {
   gradeLevel: string;
   lessonScope?: "topic" | "chapter" | string;
   chapterTitle?: string;
+  topicTitle?: string | null;
+  classGrade?: string;
+  subject?: string;
+  estimatedDurationMinutes?: number;
+  narrationLanguage?: string;
+  narrationLanguageMode?: string;
   chapterConcepts?: VisualLessonChapterConcept[];
-  mode?: "animated-visual-teacher" | string;
+  mode?: "animated-visual-teacher" | "cinematic-visual-teacher" | string;
   scenes?: VisualLessonScene[];
   slides: VisualLessonSlide[];
   simpleExplanation?: string;

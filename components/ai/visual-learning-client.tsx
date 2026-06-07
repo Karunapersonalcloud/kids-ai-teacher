@@ -15,6 +15,7 @@ import {
 } from "@/lib/learning/chapter-catalog";
 import { children, getChild, getSubjectsForChild, mockVisualLesson } from "@/lib/mock-data";
 import type { ChildId, VisualLesson } from "@/lib/types";
+import { DEFAULT_VOICE_PREFERENCES, type VoicePreferences } from "@/lib/voice/voice-types";
 
 type VisualSelection = {
   childId: ChildId;
@@ -36,6 +37,7 @@ type VisualLearningClientProps = {
 export function VisualLearningClient({ initialParams }: VisualLearningClientProps) {
   const [selection, setSelection] = useState<VisualSelection>(() => getInitialSelection(initialParams));
   const [lesson, setLesson] = useState<VisualLesson>(mockVisualLesson);
+  const [voicePreferences, setVoicePreferences] = useState<VoicePreferences>(DEFAULT_VOICE_PREFERENCES);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const { childId, subject, chapterNumber, concept } = selection;
@@ -67,6 +69,9 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
           conceptName: selectedConcept,
           concepts: selectedChapter.concepts,
           topic: selectedConcept,
+          narrationLanguage: voicePreferences.language,
+          narrationLanguageMode: voicePreferences.languageMode,
+          narrationVoiceStyle: voicePreferences.voiceStyle,
         }),
       });
       const rawResponse = await response.text();
@@ -186,6 +191,8 @@ export function VisualLearningClient({ initialParams }: VisualLearningClientProp
         chapter={selectedChapter}
         selectedConcept={selectedConcept}
         source="Catalog / uploaded material aware"
+        voicePreferences={voicePreferences}
+        onVoicePreferencesChange={setVoicePreferences}
       />
 
       <button className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white">
