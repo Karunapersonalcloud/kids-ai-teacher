@@ -1,8 +1,9 @@
-import { ensureUserForAccessRequest, findAccessByIdentifier, normalizeLoginIdentifier, updateAccessRequest } from "@/lib/access-store";
+import { AccessRequest, ensureUserForAccessRequest, findAccessByIdentifier, normalizeLoginIdentifier, updateAccessRequest } from "@/lib/access-store";
 import { verifyPin } from "@/lib/credentials";
 import { prisma } from "@/lib/db";
 import { isPostgresEnabled } from "@/lib/persistence-provider";
 import { buildSessionCookie, isLocalRequest } from "@/lib/session";
+import { getParentLock, resetParentLock, setParentLock } from "@/lib/auth-locks";
 
 export const runtime = "nodejs";
 
@@ -67,6 +68,15 @@ export async function POST(request: Request) {
       return Response.json({ error: "Your account is blocked. Contact support." }, { status: 403 });
     }
 
+    const parentLock = await getParentLock(user.id);
+    const postgresParentUser = isPostgresEnabled() ? await getPostgresParentUser(user) : null;
+    if (postgresParentUser?.lockedAt && !postgresParentUser.unlockedAt) {
+      return Response.json(
+        { error: "Your account is locked after too many wrong attempts. Please reset your password or contact support." },
+        { status: 403 }
+      );
+    }
+
     const expiredByDate = Boolean(user.expiryDate) && Date.parse(user.expiryDate as string) <= Date.now();
     if (user.status === "expired" || expiredByDate) {
       return Response.json({ error: "Your access has expired. Contact admin." }, { status: 403 });
@@ -88,10 +98,55 @@ export async function POST(request: Request) {
         });
       }
       if (!verification.ok) {
-        return Response.json({ error: "Incorrect PIN/password." }, { status: 401 });
+        const attempts = (postgresParentUser?.failedLoginAttempts ?? parentLock.failedLoginAttempts) + 1;
+        if (attempts >= 3) {
+          if (postgresParentUser) {
+            await prisma.user.update({
+              where: { id: postgresParentUser.id },
+              data: {
+                failedLoginAttempts: attempts,
+                lockedAt: new Date(),
+                lockedReason: "too_many_failed_logins",
+                unlockedAt: null,
+              },
+            });
+          } else {
+            await setParentLock(user.id, {
+              failedLoginAttempts: attempts,
+              lockedAt: new Date().toISOString(),
+              lockedReason: "too_many_failed_logins",
+            });
+          }
+          return Response.json(
+            { error: "Your account is locked after too many wrong attempts. Please reset your password or contact support." },
+            { status: 403 }
+          );
+        }
+        if (postgresParentUser) {
+          await prisma.user.update({ where: { id: postgresParentUser.id }, data: { failedLoginAttempts: attempts } });
+        } else {
+          await setParentLock(user.id, { failedLoginAttempts: attempts });
+        }
+        return Response.json(
+          { error: `Incorrect PIN/password. ${3 - attempts} attempt${attempts === 2 ? "" : "s"} remaining.` },
+          { status: 401 }
+        );
       }
       if (verification.legacyPlainMatch) {
         mustChangeCredentials = true;
+      }
+      if (postgresParentUser) {
+        await prisma.user.update({
+          where: { id: postgresParentUser.id },
+          data: {
+            failedLoginAttempts: 0,
+            lockedAt: null,
+            lockedReason: null,
+            unlockedAt: null,
+          },
+        });
+      } else {
+        await resetParentLock(user.id);
       }
     }
 
@@ -128,6 +183,33 @@ export async function POST(request: Request) {
   }
 }
 
+async function getPostgresParentUser(user: AccessRequest) {
+  if (!isPostgresEnabled()) return null;
+  if (user.id === "family-admin" || user.role === "admin") return null;
+
+  let userId = user.userId || user.id;
+  if ((user.status === "trial" || user.status === "active") && !user.userId) {
+    try {
+      userId = await ensureUserForAccessRequest(user);
+    } catch {
+      // If user creation fails, fallback to access request state.
+    }
+  }
+
+  if (!userId) return null;
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      credentialHash: true,
+      failedLoginAttempts: true,
+      lockedAt: true,
+      lockedReason: true,
+      unlockedAt: true,
+    },
+  });
+}
+
 async function loginStudent(request: Request, studentLoginId: string, pin: string) {
   if (!isPostgresEnabled()) {
     return Response.json({ error: "Student login is not configured in this environment." }, { status: 503 });
@@ -137,7 +219,6 @@ async function loginStudent(request: Request, studentLoginId: string, pin: strin
     const child = await prisma.child.findFirst({
       where: {
         studentLoginId,
-        studentLoginEnabled: true,
       },
       select: {
         id: true,
@@ -148,11 +229,26 @@ async function loginStudent(request: Request, studentLoginId: string, pin: strin
         studentPasswordHash: true,
         mustChangeStudentPassword: true,
         studentLoginEnabled: true,
+        studentFailedLoginAttempts: true,
+        studentLockedAt: true,
+        studentLockedReason: true,
+        studentUnlockedAt: true,
       },
     });
 
     if (!child) {
       return Response.json({ error: "Student ID not found." }, { status: 404 });
+    }
+
+    if (!child.studentLoginEnabled) {
+      return Response.json({ error: "Student login is disabled. Ask your parent to enable it." }, { status: 403 });
+    }
+
+    if (child.studentLockedAt && !child.studentUnlockedAt) {
+      return Response.json(
+        { error: "Your account is locked after too many wrong attempts. Please ask your parent to unlock it." },
+        { status: 403 }
+      );
     }
 
     const verification = verifyPin(child.studentPasswordHash, pin);
@@ -164,8 +260,37 @@ async function loginStudent(request: Request, studentLoginId: string, pin: strin
       });
     }
     if (!verification.ok) {
-      return Response.json({ error: "Incorrect PIN/password." }, { status: 401 });
+      const attempts = child.studentFailedLoginAttempts + 1;
+      if (attempts >= 3) {
+        await prisma.child.update({
+          where: { id: child.id },
+          data: {
+            studentFailedLoginAttempts: attempts,
+            studentLockedAt: new Date(),
+            studentLockedReason: "too_many_failed_logins",
+            studentUnlockedAt: null,
+          },
+        });
+        return Response.json(
+          { error: "Your account is locked after too many wrong attempts. Please ask your parent to unlock it." },
+          { status: 403 }
+        );
+      }
+      await prisma.child.update({ where: { id: child.id }, data: { studentFailedLoginAttempts: attempts } });
+      return Response.json(
+        { error: `Incorrect PIN/password. ${3 - attempts} attempt${attempts === 2 ? "" : "s"} remaining.` },
+        { status: 401 }
+      );
     }
+    await prisma.child.update({
+      where: { id: child.id },
+      data: {
+        studentFailedLoginAttempts: 0,
+        studentLockedAt: null,
+        studentLockedReason: null,
+        studentUnlockedAt: null,
+      },
+    });
 
     const headers = new Headers({ "Content-Type": "application/json" });
     const cookieBase = "Path=/; SameSite=Lax";

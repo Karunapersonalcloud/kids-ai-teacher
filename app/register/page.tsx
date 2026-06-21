@@ -105,6 +105,12 @@ export default function RegisterPage() {
             </Link>
             <Link href="/" className="text-sm font-semibold text-purple-700 hover:underline">Back to home</Link>
           </div>
+          <div className="mt-4 hidden flex-wrap items-center gap-3 text-sm font-semibold text-slate-600 sm:flex">
+            <Link href="/" className="transition hover:text-purple-800">Home</Link>
+            <Link href="/demo" className="transition hover:text-purple-800">Demo</Link>
+            <Link href="/login" className="transition hover:text-purple-800">Parent Login</Link>
+            <Link href="/login" className="transition hover:text-purple-800">Student Login</Link>
+          </div>
           <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">Register for ConceptKid</h1>
           <p className="mt-2 text-slate-600">
             Add your details and one or more children. Access is enabled after admin approval. You can register multiple children in one go — each can have their own grade, board, subjects, and books.
@@ -115,8 +121,13 @@ export default function RegisterPage() {
         </header>
 
         <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
-          <h2 className="text-lg font-semibold text-slate-900">Parent details</h2>
-          <p className="mt-1 text-sm text-slate-500">These details apply to all children registered below.</p>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex rounded-full bg-purple-100 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-purple-700">Step 1</span>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Parent details</h2>
+              <p className="mt-1 text-sm text-slate-500">These details apply to all children registered below.</p>
+            </div>
+          </div>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <Input name="parentName" label="Parent name" />
             <Input name="email" label="Email" type="email" />
@@ -149,8 +160,9 @@ export default function RegisterPage() {
         <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Children</h2>
-              <p className="mt-1 text-sm text-slate-500">Add one block per child. You can edit grade, board, subjects, and books per child.</p>
+              <div className="mb-3 inline-flex rounded-full bg-purple-100 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-purple-700">Step 2</div>
+              <h2 className="text-lg font-semibold text-slate-900">Children and subjects</h2>
+              <p className="mt-1 text-sm text-slate-500">Add one block per child. Select grade, board, subjects, and books for each child.</p>
             </div>
             <button
               type="button"
@@ -185,6 +197,25 @@ export default function RegisterPage() {
             {status.message}
           </div>
         )}
+
+        <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex rounded-full bg-purple-100 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-purple-700">Step 3</span>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Review and submit</h2>
+              <p className="mt-1 text-sm text-slate-500">Once approved, your parent account and child access will be activated. Students can then login with their Student ID and PIN.</p>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-3xl bg-slate-50 p-4 text-sm text-slate-600 shadow-sm">
+            <p className="font-semibold text-slate-900">Important:</p>
+            <ul className="mt-3 space-y-2 list-disc pl-5">
+              <li>ConceptKid access is approved by our team before you can login.</li>
+              <li>Parent login gives you dashboard controls and student account management.</li>
+              <li>Student login is enabled by the parent after approval and setup.</li>
+            </ul>
+          </div>
+        </section>
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
           <p className="max-w-xl text-sm text-slate-600">

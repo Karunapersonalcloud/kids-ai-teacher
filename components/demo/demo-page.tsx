@@ -28,10 +28,16 @@ export function DemoPage() {
           <Link href="/">
             <BrandLogo />
           </Link>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/" className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700">Home</Link>
             <Link href="/login" className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700">Parent Login</Link>
+            <Link href="/login" className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-700">Student Login</Link>
             <Link href="/register" className="rounded-2xl bg-purple-600 px-4 py-3 text-sm font-black text-white">Register for Access</Link>
           </div>
+        </div>
+
+        <div className="mt-6 rounded-2xl bg-slate-100 px-4 py-4 text-sm font-semibold text-slate-700">
+          This is a preview-only demo. Full progress and child access require registration and admin approval.
         </div>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">

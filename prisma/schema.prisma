@@ -20,6 +20,10 @@ model User {
   /// MVP only. Production should store a salted password/PIN hash, never a plain temporary PIN.
   tempPin               String?
   mustChangeCredentials Boolean   @default(false)
+  failedLoginAttempts   Int        @default(0)
+  lockedAt              DateTime?
+  lockedReason          String?
+  unlockedAt            DateTime?
   approvedAt            DateTime?
   approvedBy            String?
   lastLoginAt           DateTime?
@@ -74,6 +78,10 @@ model Child {
   studentPasswordHash          String?
   mustChangeStudentPassword    Boolean  @default(true)
   studentLoginEnabled          Boolean  @default(true)
+  studentFailedLoginAttempts   Int      @default(0)
+  studentLockedAt              DateTime?
+  studentLockedReason          String?
+  studentUnlockedAt            DateTime?
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
 

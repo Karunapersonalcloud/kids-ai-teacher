@@ -62,16 +62,23 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7f5ff] p-5">
       <section className="w-full max-w-md rounded-3xl bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <Link href="/" aria-label="Back to ConceptKid home">
             <BrandLogo />
           </Link>
-          <Link href="/" className="text-sm font-black text-purple-700">Back</Link>
+          <div className="hidden items-center gap-3 text-sm font-semibold text-slate-600 sm:flex">
+            <Link href="/" className="transition hover:text-purple-800">Home</Link>
+            <Link href="/demo" className="transition hover:text-purple-800">Demo</Link>
+            <Link href="/register" className="transition hover:text-purple-800">Register</Link>
+            <Link href="/login" className="transition hover:text-purple-800">Student Login</Link>
+          </div>
         </div>
         <h1 className="mt-4 text-3xl font-black text-purple-800">Login</h1>
         <p className="mt-2 text-sm font-semibold text-slate-500">Parents and students can login with their assigned credentials.</p>
         <p className="mt-3 rounded-2xl bg-purple-50 px-4 py-3 text-sm font-bold leading-6 text-purple-800">
-          Forgot your PIN or waiting for approval? Contact support@conceptkid.in.
+          {loginType === "parent"
+            ? "Parent login uses your registered email or mobile with a secure PIN/password. If you can't access your account, use the registered contact or support@conceptkid.in."
+            : "Student login uses Student ID with a PIN/password. If you forget your PIN, ask your parent to reset it from the Parent Dashboard."}
         </p>
         {showLocalAdmin && (
           <div className="mt-5 rounded-2xl bg-amber-50 p-4">

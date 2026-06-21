@@ -86,6 +86,9 @@ export function PublicLanding() {
           </Link>
 
           <div className="hidden items-center gap-2 text-sm font-semibold sm:flex">
+            <Link href="/" className="rounded-full px-3 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">
+              Home
+            </Link>
             <Link href="/demo" className="rounded-full px-3 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">
               Demo
             </Link>
@@ -94,6 +97,9 @@ export function PublicLanding() {
             </Link>
             <Link href="/login" className="rounded-full px-3 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">
               Parent Login
+            </Link>
+            <Link href="/login" className="rounded-full px-3 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">
+              Student Login
             </Link>
           </div>
 
