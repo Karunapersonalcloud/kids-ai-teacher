@@ -53,15 +53,16 @@ const howItWorks = [
 ] as const;
 
 const visualMoments = [
-  { title: "Fractions", detail: "Equal parts appear step by step" },
-  { title: "Science", detail: "Processes become moving examples" },
-  { title: "Maths", detail: "Problem solving is shown visually" },
+  { title: "Fractions", detail: "Pizza splits into equal parts" },
+  { title: "Matter", detail: "Particles move and spread" },
+  { title: "Number line", detail: "Values appear step by step" },
 ] as const;
 
-const parentProgress = [
-  { label: "Readiness", value: "68%", tone: "bg-amber-500" },
-  { label: "Practice completed", value: "12/18", tone: "bg-emerald-500" },
-  { label: "Weak topics", value: "3", tone: "bg-rose-500" },
+const parentDashboardRows = [
+  { label: "Actual level vs enrolled class", value: "Class 5 / Level 4", icon: Gauge },
+  { label: "Weak topics", value: "Word problems", icon: Target },
+  { label: "Today's plan", value: "8 topics", icon: ClipboardCheck },
+  { label: "Readiness target", value: "Chapter-ready", icon: CheckCircle2 },
 ] as const;
 
 function HeaderBrand() {
@@ -239,113 +240,126 @@ export function PublicLanding() {
         </div>
       </section>
 
-      <section className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:px-8 lg:py-16">
+      <section className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:px-8 lg:py-20">
         <div>
-          <p className="text-sm font-black uppercase tracking-[0.16em] text-violet-700">Cinematic Visual Teacher preview</p>
-          <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">School chapters become visual lessons.</h2>
+          <p className="text-sm font-black uppercase tracking-[0.16em] text-violet-700">Visual learning preview</p>
+          <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Cinematic Visual Teacher Mode</h2>
           <p className="mt-4 max-w-xl text-base leading-7 text-slate-600">
-            Children see the idea, hear the explanation, answer a quick check, and move ahead with confidence.
+            Concepts are explained through real-life examples, moving visuals, and teacher-style voice narration.
           </p>
           <Link
             href="/demo"
-            className="mt-7 inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-6 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+            className="mt-7 inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-6 py-3 text-sm font-bold text-white shadow-sm shadow-slate-950/10 transition hover:bg-slate-800"
           >
             <PlayCircle className="h-5 w-5" />
             Try Visual Demo
           </Link>
         </div>
 
-        <div className="rounded-[8px] border border-slate-200 bg-slate-950 p-5 text-white shadow-2xl shadow-slate-950/15">
-          <div className="flex items-center justify-between border-b border-white/10 pb-4">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">Visual Teacher Mode</p>
-              <h3 className="mt-2 text-xl font-black">Fractions: Equal parts</h3>
-            </div>
-            <Eye className="h-6 w-6 text-cyan-200" />
-          </div>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            {visualMoments.map(({ title, detail }) => (
-              <div key={title} className="rounded-[8px] bg-white/10 p-4">
-                <p className="text-sm font-black">{title}</p>
-                <p className="mt-2 text-xs leading-5 text-slate-300">{detail}</p>
+        <div className="rounded-[8px] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-950/10 sm:p-5">
+          <div className="rounded-[8px] border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-cyan-50 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-indigo-700">Classroom board</p>
+                <h3 className="mt-2 text-xl font-black text-slate-950">Fractions made visible</h3>
               </div>
-            ))}
-          </div>
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-950 text-white shadow-lg shadow-slate-950/15">
+                <PlayCircle className="h-6 w-6" />
+              </span>
+            </div>
 
-          <div className="mt-5 rounded-[8px] bg-white p-4 text-slate-950">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Teacher prompt</p>
-            <p className="mt-2 text-sm font-bold leading-6">If one pizza is split into 4 equal parts, each part is one fourth.</p>
+            <div className="mt-5 rounded-[8px] border border-white/80 bg-white/80 p-5">
+              <div className="grid gap-3 sm:grid-cols-4">
+                <div className="rounded-[8px] bg-rose-100 p-4 sm:col-span-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <span className="h-14 rounded-tl-full bg-rose-400" />
+                    <span className="h-14 rounded-tr-full bg-amber-300" />
+                    <span className="h-14 rounded-bl-full bg-cyan-300" />
+                    <span className="h-14 rounded-br-full bg-emerald-300" />
+                  </div>
+                </div>
+                <div className="rounded-[8px] bg-white p-4 shadow-sm sm:col-span-2">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Teacher voice</p>
+                  <p className="mt-2 text-sm font-bold leading-6 text-slate-800">One whole can be split into equal parts.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {visualMoments.map(({ title, detail }) => (
+                <div key={title} className="rounded-[8px] border border-white/80 bg-white p-4 shadow-sm shadow-slate-950/5">
+                  <p className="text-sm font-black text-slate-950">{title}</p>
+                  <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">{detail}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="border-y border-slate-200 bg-white">
-        <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-8 lg:py-16">
-          <div className="rounded-[8px] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-950/5">
-            <div className="flex items-center justify-between gap-4">
+      <section className="border-y border-slate-200 bg-slate-50/70">
+        <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:px-8 lg:py-20">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-emerald-700">Parent progress preview</p>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">See your child&apos;s progress clearly</h2>
+            <p className="mt-4 max-w-xl text-base leading-7 text-slate-600">
+              Parents do not need to guess. ConceptKid shows what the child studied, where they are weak, and what to practice next.
+            </p>
+          </div>
+
+          <div className="rounded-[8px] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-950/10">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-5">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Parent progress preview</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Parent dashboard</p>
                 <h3 className="mt-2 text-2xl font-black text-slate-950">Progress at a glance</h3>
               </div>
               <LineChart className="h-8 w-8 text-emerald-700" />
             </div>
 
-            <div className="mt-7 space-y-5">
-              {parentProgress.map(({ label, value, tone }) => (
-                <div key={label}>
-                  <div className="mb-2 flex items-center justify-between text-sm font-bold">
-                    <span className="text-slate-600">{label}</span>
-                    <span className="text-slate-950">{value}</span>
-                  </div>
-                  <div className="h-2.5 rounded-full bg-slate-100">
-                    <div className={`h-2.5 rounded-full ${tone}`} style={{ width: label === "Weak topics" ? "32%" : label === "Practice completed" ? "66%" : "68%" }} />
-                  </div>
+            <div className="mt-5 grid gap-3">
+              {parentDashboardRows.map(({ label, value, icon: Icon }) => (
+                <div key={label} className="flex items-center justify-between gap-4 rounded-[8px] bg-slate-50 px-4 py-3">
+                  <span className="flex items-center gap-3 text-sm font-bold text-slate-700">
+                    <Icon className="h-5 w-5 text-indigo-700" />
+                    {label}
+                  </span>
+                  <span className="text-right text-sm font-black text-slate-950">{value}</span>
                 </div>
               ))}
             </div>
           </div>
-
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-700">Parent progress preview</p>
-            <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Parents see what matters.</h2>
-            <p className="mt-4 max-w-xl text-base leading-7 text-slate-600">
-              See the actual level, weak topics, today&apos;s study plan, and progress without reading long daily reports.
-            </p>
-          </div>
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
-        <div className="rounded-[8px] bg-slate-950 px-6 py-12 text-center text-white sm:px-8">
-          <p className="text-sm font-black uppercase tracking-[0.16em] text-cyan-200">Final CTA</p>
-          <h2 className="mx-auto mt-3 max-w-2xl text-3xl font-black tracking-tight sm:text-4xl">Start with a simple visual demo.</h2>
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+        <div className="rounded-[8px] border border-slate-200 bg-slate-950 px-6 py-12 text-center text-white shadow-xl shadow-slate-950/10 sm:px-8">
+          <h2 className="mx-auto max-w-2xl text-3xl font-black tracking-tight sm:text-4xl">Join the pilot families list</h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-300">
-            Preview how ConceptKid teaches before requesting pilot access for your family.
+            We are onboarding families carefully during pilot testing.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <Link
-              href="/demo"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-slate-100"
-            >
-              <Eye className="h-5 w-5" />
-              Try Visual Demo
-            </Link>
-            <Link
               href="/register"
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/25 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/10"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-slate-100"
             >
               Register for Early Access
               <ArrowRight className="h-4 w-4" />
             </Link>
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center rounded-full border border-white/25 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/10"
+            >
+              Parent Login
+            </Link>
           </div>
+          <p className="mt-5 text-xs font-bold text-slate-400">Family profiles for up to 2 children during pilot.</p>
         </div>
       </section>
 
       <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-          <HeaderBrand />
-          <div className="flex flex-wrap gap-4 text-sm font-semibold text-slate-600">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-7 text-sm sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <span className="text-base font-black text-slate-950">ConceptKid</span>
+          <div className="flex flex-wrap gap-x-5 gap-y-2 font-semibold text-slate-600">
             <a href="mailto:support@conceptkid.in" className="hover:text-slate-950">
               support@conceptkid.in
             </a>
