@@ -1,16 +1,13 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  BookOpenCheck,
   Brain,
   CheckCircle2,
   ClipboardCheck,
   Eye,
   Gauge,
-  GraduationCap,
   LineChart,
   PlayCircle,
-  ShieldCheck,
   Sparkles,
   Target,
 } from "lucide-react";
@@ -18,40 +15,41 @@ import { BrandLogo } from "@/components/shared/brand-logo";
 
 const heroBadges = ["Pilot access by approval", "Parent-supervised", "Textbook-based learning"];
 
-const trustStrip = [
-  { label: "Made for Indian parents", value: "Class 1 to Class 12", icon: GraduationCap },
-  { label: "Learning stays guided", value: "Parent-supervised pilot", icon: ShieldCheck },
-  { label: "School chapter focused", value: "Textbook-based learning", icon: BookOpenCheck },
+const trustPoints = [
+  { title: "Diagnostic-based learning", icon: Gauge },
+  { title: "Visual teacher mode", icon: Sparkles },
+  { title: "Parent progress view", icon: LineChart },
+  { title: "Practice until mastery", icon: CheckCircle2 },
 ] as const;
 
 const helpFeatures = [
   {
     title: "Checks actual level",
-    description: "Finds what your child knows before a chapter begins.",
+    description: "Finds what your child already knows and what is missing.",
     icon: Gauge,
   },
   {
     title: "Teaches visually",
-    description: "Explains school concepts with examples children can picture.",
+    description: "Explains concepts with moving visuals, examples, and teacher voice.",
     icon: Sparkles,
   },
   {
     title: "Gives practice",
-    description: "Adds quick questions after each important idea.",
+    description: "Asks small questions after each concept to build understanding.",
     icon: ClipboardCheck,
   },
   {
-    title: "Finds weak areas",
-    description: "Shows the exact topics that need more revision.",
+    title: "Shows weak areas",
+    description: "Parents can see what needs revision and what to practice next.",
     icon: Target,
   },
 ] as const;
 
 const howItWorks = [
   "Select class, board, and subject",
-  "Take a quick level check",
+  "Take a quick diagnostic",
   "Learn with Visual Teacher Mode",
-  "Practice and track progress",
+  "Practice until mastery",
 ] as const;
 
 const visualMoments = [
@@ -183,31 +181,30 @@ export function PublicLanding() {
       </section>
 
       <section className="border-y border-slate-200 bg-white">
-        <div className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-5 sm:px-6 lg:grid-cols-3 lg:px-8">
-          {trustStrip.map(({ label, value, icon: Icon }) => (
-            <div key={label} className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+        <div className="mx-auto grid w-full max-w-7xl gap-3 px-4 py-6 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
+          {trustPoints.map(({ title, icon: Icon }) => (
+            <div key={title} className="flex items-center gap-3 rounded-[8px] border border-slate-100 bg-white px-4 py-3 shadow-sm shadow-slate-950/5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-700">
                 <Icon className="h-5 w-5" />
               </span>
-              <span>
-                <span className="block text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{label}</span>
-                <span className="block text-sm font-black text-slate-950">{value}</span>
-              </span>
+              <span className="text-sm font-black text-slate-800">{title}</span>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
         <div className="max-w-2xl">
           <p className="text-sm font-black uppercase tracking-[0.16em] text-cyan-700">How ConceptKid helps</p>
           <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">One clear learning path for every child.</h2>
         </div>
 
-        <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {helpFeatures.map(({ title, description, icon: Icon }) => (
-            <div key={title} className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
-              <Icon className="h-7 w-7 text-slate-800" />
+            <div key={title} className="rounded-[8px] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5">
+              <span className="flex h-11 w-11 items-center justify-center rounded-[8px] bg-cyan-50 text-cyan-700">
+                <Icon className="h-5 w-5" />
+              </span>
               <h3 className="mt-4 text-base font-black text-slate-950">{title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
             </div>
@@ -215,12 +212,12 @@ export function PublicLanding() {
         </div>
       </section>
 
-      <section className="bg-slate-50">
-        <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
+      <section className="bg-gradient-to-b from-slate-50 to-white">
+        <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-sm font-black uppercase tracking-[0.16em] text-emerald-700">How it works</p>
-              <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">From level check to parent progress.</h2>
+              <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Four simple steps from setup to practice.</h2>
             </div>
             <Link href="/register" className="inline-flex items-center gap-2 text-sm font-black text-slate-800 hover:text-slate-950">
               Register for Early Access
@@ -228,13 +225,14 @@ export function PublicLanding() {
             </Link>
           </div>
 
-          <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative mt-10 grid gap-4 lg:grid-cols-4 lg:gap-6">
+            <div className="absolute left-0 right-0 top-8 hidden h-px bg-gradient-to-r from-transparent via-indigo-200 to-transparent lg:block" />
             {howItWorks.map((step, index) => (
-              <div key={step} className="rounded-[8px] border border-slate-200 bg-white p-5">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white">
+              <div key={step} className="relative rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 lg:pt-16">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-600 text-sm font-black text-white shadow-sm shadow-indigo-200 lg:absolute lg:left-5 lg:top-3">
                   {index + 1}
                 </span>
-                <p className="mt-5 text-base font-black text-slate-950">{step}</p>
+                <p className="mt-5 text-base font-black leading-6 text-slate-950 lg:mt-0">{step}</p>
               </div>
             ))}
           </div>
