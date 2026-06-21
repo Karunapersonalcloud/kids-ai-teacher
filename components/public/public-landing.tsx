@@ -1,245 +1,367 @@
-"use client";
-
 import Link from "next/link";
 import {
-  BarChart3,
+  ArrowRight,
+  BookOpenCheck,
   Brain,
   CheckCircle2,
   ClipboardCheck,
   Eye,
+  Gauge,
+  GraduationCap,
+  LineChart,
+  PlayCircle,
+  ShieldCheck,
   Sparkles,
   Target,
 } from "lucide-react";
 import { BrandLogo } from "@/components/shared/brand-logo";
 
-const trustBadges = ["Pilot access by approval", "Parent-supervised", "Textbook-based"];
+const heroBadges = ["Pilot access by approval", "Parent-supervised", "Textbook-based learning"];
 
-const previewStats = [
-  { label: "Readiness", value: "68%", text: "Current level" },
-  { label: "Target", value: "95%", text: "Chapter goal" },
-  { label: "Today", value: "Fractions", text: "Today's lesson" },
-];
+const trustStrip = [
+  { label: "Made for Indian parents", value: "Class 1 to Class 12", icon: GraduationCap },
+  { label: "Learning stays guided", value: "Parent-supervised pilot", icon: ShieldCheck },
+  { label: "School chapter focused", value: "Textbook-based learning", icon: BookOpenCheck },
+] as const;
 
 const helpFeatures = [
-  ["Checks actual level", "Finds what your child already knows and what is missing.", Brain],
-  ["Teaches visually", "Uses cinematic visuals, examples, and voice explanation.", Sparkles],
-  ["Gives practice", "Asks small questions after each concept.", ClipboardCheck],
-  ["Shows weak areas", "Parents can see what needs revision.", Target],
+  {
+    title: "Checks actual level",
+    description: "Finds what your child knows before a chapter begins.",
+    icon: Gauge,
+  },
+  {
+    title: "Teaches visually",
+    description: "Explains school concepts with examples children can picture.",
+    icon: Sparkles,
+  },
+  {
+    title: "Gives practice",
+    description: "Adds quick questions after each important idea.",
+    icon: ClipboardCheck,
+  },
+  {
+    title: "Finds weak areas",
+    description: "Shows the exact topics that need more revision.",
+    icon: Target,
+  },
 ] as const;
 
 const howItWorks = [
-  "Select class, board, subject",
-  "Take a quick diagnostic",
+  "Select class, board, and subject",
+  "Take a quick level check",
   "Learn with Visual Teacher Mode",
-  "Practice until mastery",
-];
-
-const parentFeatures = [
-  { title: "Actual level vs enrolled class", icon: "📊" },
-  { title: "Weak topics at a glance", icon: "⚠️" },
-  { title: "Today's learning plan", icon: "📋" },
-  { title: "Progress toward mastery", icon: "✓" },
+  "Practice and track progress",
 ] as const;
+
+const visualMoments = [
+  { title: "Fractions", detail: "Equal parts appear step by step" },
+  { title: "Science", detail: "Processes become moving examples" },
+  { title: "Maths", detail: "Problem solving is shown visually" },
+] as const;
+
+const parentProgress = [
+  { label: "Readiness", value: "68%", tone: "bg-amber-500" },
+  { label: "Practice completed", value: "12/18", tone: "bg-emerald-500" },
+  { label: "Weak topics", value: "3", tone: "bg-rose-500" },
+] as const;
+
+function HeaderBrand() {
+  return (
+    <span className="inline-flex items-center gap-3">
+      <BrandLogo variant="icon" showText={false} />
+      <span className="leading-tight">
+        <span className="block text-lg font-black text-slate-950">ConceptKid</span>
+        <span className="block text-xs font-bold text-slate-500">Personal AI Teacher</span>
+      </span>
+    </span>
+  );
+}
 
 export function PublicLanding() {
   return (
-    <main className="min-h-screen bg-white text-slate-900">
-      {/* Header */}
-      <header className="border-b border-slate-100 bg-white">
-        <nav className="mx-auto flex min-h-[64px] w-full max-w-[1400px] items-center justify-between px-4 sm:px-6 lg:px-10">
-          <Link href="/" className="inline-flex items-center">
-            <BrandLogo className="items-center" />
+    <main className="min-h-screen bg-white text-slate-950">
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl">
+        <nav className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <Link href="/" aria-label="ConceptKid home" className="inline-flex items-center">
+            <HeaderBrand />
           </Link>
-          <div className="flex gap-3">
-            <Link href="/demo" className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900">
+
+          <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+            <Link href="/demo" className="rounded-full px-3 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">
               Demo
             </Link>
-            <Link href="/register" className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900">
+            <Link href="/register" className="rounded-full px-3 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">
               Register
             </Link>
-            <Link href="/login" className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">
+            <Link href="/login" className="rounded-full px-3 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">
               Parent Login
+            </Link>
+            <Link
+              href="/demo"
+              className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-white shadow-sm transition hover:bg-slate-800"
+            >
+              <Eye className="h-4 w-4" />
+              Try Visual Demo
             </Link>
           </div>
         </nav>
       </header>
 
-      {/* Hero Section */}
-      <section className="mx-auto w-full max-w-[1400px] px-4 py-12 sm:px-6 lg:py-16 lg:px-10">
-        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
+      <section className="bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_62%,#ffffff_100%)]">
+        <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-8 lg:py-20">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
-              Personal AI Teacher for Every Child
+            <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+              Learning made Visual. Simple. Personal.
             </h1>
-            <p className="mt-6 text-lg leading-8 text-slate-600">
-              ConceptKid checks your child's actual level, teaches school chapters visually, gives practice, finds weak areas, and helps prepare for exams step by step.
+            <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+              ConceptKid checks your child&apos;s actual level, teaches school chapters with visual examples, gives practice, finds weak areas, and shows progress to parents.
             </p>
+
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/demo" className="inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 px-6 py-3 font-semibold text-white hover:bg-purple-700">
-                <Eye className="h-5 w-5" /> Try Visual Demo
+              <Link
+                href="/demo"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-slate-950/10 transition hover:bg-slate-800"
+              >
+                <Eye className="h-5 w-5" />
+                Try Visual Demo
               </Link>
-              <Link href="/register" className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-6 py-3 font-semibold text-slate-700 hover:bg-slate-50">
+              <Link
+                href="/register"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-bold text-slate-800 transition hover:border-slate-400 hover:bg-slate-50"
+              >
                 Register for Early Access
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
+
             <div className="mt-7 flex flex-wrap gap-2">
-              {trustBadges.map((badge) => (
-                <span key={badge} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+              {heroBadges.map((badge) => (
+                <span key={badge} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                   {badge}
                 </span>
               ))}
             </div>
           </div>
 
-          {/* Hero Preview Card */}
-          <div className="rounded-2xl bg-slate-50 p-6 ring-1 ring-slate-200">
-            <div className="rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-white">
-              <p className="text-xs font-semibold text-slate-300">DEMO STUDENT</p>
-              <h2 className="mt-2 text-2xl font-bold">Class 5</h2>
-              <div className="mt-6 grid grid-cols-3 gap-4">
-                {previewStats.map((stat) => (
-                  <div key={stat.label} className="rounded-lg bg-white/10 p-3">
-                    <p className="text-xs font-semibold text-slate-300">{stat.label}</p>
-                    <p className="mt-1 text-2xl font-bold">{stat.value}</p>
-                    <p className="mt-1 text-xs text-slate-400">{stat.text}</p>
-                  </div>
-                ))}
+          <div className="rounded-[8px] border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-950/10">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Demo Student &middot; Class 5</p>
+                <h2 className="mt-2 text-2xl font-black text-slate-950">Today&apos;s Learning Snapshot</h2>
               </div>
-              <div className="mt-6 rounded-lg bg-white p-4 text-slate-900">
-                <p className="text-xs font-semibold text-purple-600">WEAK AREA</p>
-                <p className="mt-2 font-semibold">Word problems need practice</p>
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cyan-50 text-cyan-700">
+                <Brain className="h-6 w-6" />
               </div>
             </div>
+
+            <dl className="mt-6 grid gap-4 text-sm">
+              <div className="flex items-center justify-between rounded-[8px] bg-slate-50 px-4 py-3">
+                <dt className="font-bold text-slate-600">Readiness</dt>
+                <dd className="text-2xl font-black text-amber-600">68%</dd>
+              </div>
+              <div className="flex items-center justify-between rounded-[8px] bg-slate-50 px-4 py-3">
+                <dt className="font-bold text-slate-600">Target</dt>
+                <dd className="text-2xl font-black text-emerald-600">95%</dd>
+              </div>
+              <div className="flex items-center justify-between rounded-[8px] bg-slate-50 px-4 py-3">
+                <dt className="font-bold text-slate-600">Today&apos;s Lesson</dt>
+                <dd className="font-black text-slate-950">Fractions</dd>
+              </div>
+              <div className="flex items-center justify-between rounded-[8px] bg-slate-50 px-4 py-3">
+                <dt className="font-bold text-slate-600">Weak Area</dt>
+                <dd className="font-black text-slate-950">Word Problems</dd>
+              </div>
+              <div className="flex items-center justify-between rounded-[8px] bg-slate-50 px-4 py-3">
+                <dt className="font-bold text-slate-600">Study Plan</dt>
+                <dd className="font-black text-slate-950">8 topics today</dd>
+              </div>
+            </dl>
           </div>
         </div>
       </section>
 
-      {/* How ConceptKid Helps - 4 Cards */}
-      <section className="mx-auto w-full max-w-[1400px] px-4 py-12 sm:px-6 lg:py-16 lg:px-10">
-        <h2 className="text-3xl font-bold text-slate-900">How ConceptKid helps</h2>
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {helpFeatures.map(([title, description, Icon]) => (
-            <div key={title} className="rounded-xl border border-slate-200 bg-white p-6">
-              <Icon className="h-8 w-8 text-purple-600" />
-              <h3 className="mt-4 font-semibold text-slate-900">{title}</h3>
-              <p className="mt-2 text-sm text-slate-600">{description}</p>
+      <section className="border-y border-slate-200 bg-white">
+        <div className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-5 sm:px-6 lg:grid-cols-3 lg:px-8">
+          {trustStrip.map(({ label, value, icon: Icon }) => (
+            <div key={label} className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                <Icon className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{label}</span>
+                <span className="block text-sm font-black text-slate-950">{value}</span>
+              </span>
             </div>
           ))}
         </div>
       </section>
 
-      {/* How It Works - 4 Steps */}
-      <section className="mx-auto w-full max-w-[1400px] px-4 py-12 sm:px-6 lg:py-16 lg:px-10">
-        <h2 className="text-3xl font-bold text-slate-900">How it works</h2>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {howItWorks.map((step, index) => (
-            <div key={step} className="rounded-xl bg-slate-50 p-6 ring-1 ring-slate-200">
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-purple-600 font-bold text-white">
-                {index + 1}
-              </div>
-              <p className="mt-4 font-semibold text-slate-900">{step}</p>
+      <section className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
+        <div className="max-w-2xl">
+          <p className="text-sm font-black uppercase tracking-[0.16em] text-cyan-700">How ConceptKid helps</p>
+          <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">One clear learning path for every child.</h2>
+        </div>
+
+        <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {helpFeatures.map(({ title, description, icon: Icon }) => (
+            <div key={title} className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-sm">
+              <Icon className="h-7 w-7 text-slate-800" />
+              <h3 className="mt-4 text-base font-black text-slate-950">{title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Visual Teacher Preview */}
-      <section className="mx-auto w-full max-w-[1400px] px-4 py-12 sm:px-6 lg:py-16 lg:px-10">
-        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
-          <div>
-            <h2 className="text-3xl font-bold text-slate-900">Cinematic Visual Teacher Mode</h2>
-            <p className="mt-4 text-lg text-slate-600">
-              Concepts are explained with moving visuals, real-life examples, and teacher voice.
-            </p>
-            <div className="mt-8 space-y-4">
-              <div className="rounded-lg bg-slate-50 p-4">
-                <p className="font-semibold text-slate-900">Fractions</p>
-                <p className="mt-1 text-sm text-slate-600">Pizza splits into equal parts</p>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-4">
-                <p className="font-semibold text-slate-900">Matter</p>
-                <p className="mt-1 text-sm text-slate-600">Particles move and spread</p>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-4">
-                <p className="font-semibold text-slate-900">Number line</p>
-                <p className="mt-1 text-sm text-slate-600">Values appear step by step</p>
-              </div>
+      <section className="bg-slate-50">
+        <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-emerald-700">How it works</p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">From level check to parent progress.</h2>
             </div>
-            <Link href="/demo" className="mt-8 inline-flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 font-semibold text-white hover:bg-purple-700">
-              <Eye className="h-5 w-5" /> Try Visual Demo
+            <Link href="/register" className="inline-flex items-center gap-2 text-sm font-black text-slate-800 hover:text-slate-950">
+              Register for Early Access
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-          <div className="rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 p-8 text-white">
-            <div className="text-center">
-              <p className="text-sm font-semibold opacity-90">Visual Lesson Preview</p>
-              <p className="mt-4 text-4xl font-bold">✨</p>
-              <p className="mt-6 text-lg font-semibold">Moving visuals & voice explanations</p>
-              <p className="mt-2 text-sm opacity-90">See how concepts come alive for your child</p>
-            </div>
+
+          <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {howItWorks.map((step, index) => (
+              <div key={step} className="rounded-[8px] border border-slate-200 bg-white p-5">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white">
+                  {index + 1}
+                </span>
+                <p className="mt-5 text-base font-black text-slate-950">{step}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Parent Progress Preview */}
-      <section className="mx-auto w-full max-w-[1400px] px-4 py-12 sm:px-6 lg:py-16 lg:px-10">
-        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
-          <div className="rounded-xl border border-slate-200 bg-white p-8">
-            <p className="text-xs font-semibold text-purple-600">PARENT DASHBOARD</p>
-            <h3 className="mt-3 text-xl font-bold text-slate-900">Progress at a glance</h3>
-            <div className="mt-6 space-y-4">
-              {parentFeatures.map(({ title, icon }) => (
-                <div key={title} className="flex items-start gap-3">
-                  <span className="text-2xl">{icon}</span>
-                  <span className="text-sm font-semibold text-slate-600">{title}</span>
+      <section className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:px-8 lg:py-16">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.16em] text-violet-700">Cinematic Visual Teacher preview</p>
+          <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">School chapters become visual lessons.</h2>
+          <p className="mt-4 max-w-xl text-base leading-7 text-slate-600">
+            Children see the idea, hear the explanation, answer a quick check, and move ahead with confidence.
+          </p>
+          <Link
+            href="/demo"
+            className="mt-7 inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-6 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+          >
+            <PlayCircle className="h-5 w-5" />
+            Try Visual Demo
+          </Link>
+        </div>
+
+        <div className="rounded-[8px] border border-slate-200 bg-slate-950 p-5 text-white shadow-2xl shadow-slate-950/15">
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">Visual Teacher Mode</p>
+              <h3 className="mt-2 text-xl font-black">Fractions: Equal parts</h3>
+            </div>
+            <Eye className="h-6 w-6 text-cyan-200" />
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            {visualMoments.map(({ title, detail }) => (
+              <div key={title} className="rounded-[8px] bg-white/10 p-4">
+                <p className="text-sm font-black">{title}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-300">{detail}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 rounded-[8px] bg-white p-4 text-slate-950">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Teacher prompt</p>
+            <p className="mt-2 text-sm font-bold leading-6">If one pizza is split into 4 equal parts, each part is one fourth.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-slate-200 bg-white">
+        <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-8 lg:py-16">
+          <div className="rounded-[8px] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-950/5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Parent progress preview</p>
+                <h3 className="mt-2 text-2xl font-black text-slate-950">Progress at a glance</h3>
+              </div>
+              <LineChart className="h-8 w-8 text-emerald-700" />
+            </div>
+
+            <div className="mt-7 space-y-5">
+              {parentProgress.map(({ label, value, tone }) => (
+                <div key={label}>
+                  <div className="mb-2 flex items-center justify-between text-sm font-bold">
+                    <span className="text-slate-600">{label}</span>
+                    <span className="text-slate-950">{value}</span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-slate-100">
+                    <div className={`h-2.5 rounded-full ${tone}`} style={{ width: label === "Weak topics" ? "32%" : label === "Practice completed" ? "66%" : "68%" }} />
+                  </div>
                 </div>
               ))}
             </div>
           </div>
+
           <div>
-            <h2 className="text-3xl font-bold text-slate-900">Parents see what matters</h2>
-            <p className="mt-4 text-lg text-slate-600">
-              Parents do not need to guess. ConceptKid shows what the child studied, where they are weak, and what to practice next.
-            </p>
-            <p className="mt-4 text-sm text-slate-500">
-              No daily long reports. No unnecessary details. Just the essentials.
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-700">Parent progress preview</p>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Parents see what matters.</h2>
+            <p className="mt-4 max-w-xl text-base leading-7 text-slate-600">
+              See the actual level, weak topics, today&apos;s study plan, and progress without reading long daily reports.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Early Access CTA */}
-      <section className="mx-auto w-full max-w-[1400px] px-4 py-12 sm:px-6 lg:py-16 lg:px-10">
-        <div className="rounded-2xl bg-purple-600 px-6 py-12 text-white sm:px-8 lg:px-12">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold">Join the pilot families list</h2>
-            <p className="mt-4 text-lg text-purple-100">
-              We are onboarding families carefully during pilot testing. Family profiles for up to 2 children included during pilot.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Link href="/register" className="inline-flex items-center justify-center rounded-xl bg-white px-6 py-3 font-semibold text-purple-600 hover:bg-slate-100">
-                Register for Early Access
-              </Link>
-              <Link href="/login" className="inline-flex items-center justify-center rounded-xl border border-purple-300 px-6 py-3 font-semibold text-white hover:bg-purple-700">
-                Parent Login
-              </Link>
-            </div>
+      <section className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
+        <div className="rounded-[8px] bg-slate-950 px-6 py-12 text-center text-white sm:px-8">
+          <p className="text-sm font-black uppercase tracking-[0.16em] text-cyan-200">Final CTA</p>
+          <h2 className="mx-auto mt-3 max-w-2xl text-3xl font-black tracking-tight sm:text-4xl">Start with a simple visual demo.</h2>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-300">
+            Preview how ConceptKid teaches before requesting pilot access for your family.
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Link
+              href="/demo"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-slate-950 transition hover:bg-slate-100"
+            >
+              <Eye className="h-5 w-5" />
+              Try Visual Demo
+            </Link>
+            <Link
+              href="/register"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/25 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/10"
+            >
+              Register for Early Access
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto w-full max-w-[1400px] px-4 py-8 sm:px-6 lg:px-10">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <BrandLogo />
-            <div className="flex flex-wrap gap-4 text-sm text-slate-600">
-              <a href="mailto:support@conceptkid.in" className="hover:text-slate-900">support@conceptkid.in</a>
-              <Link href="/demo" className="hover:text-slate-900">Demo</Link>
-              <Link href="/register" className="hover:text-slate-900">Register</Link>
-              <Link href="/login" className="hover:text-slate-900">Login</Link>
-            </div>
-            <span className="text-xs font-semibold text-slate-500">Pilot access by approval</span>
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <HeaderBrand />
+          <div className="flex flex-wrap gap-4 text-sm font-semibold text-slate-600">
+            <a href="mailto:support@conceptkid.in" className="hover:text-slate-950">
+              support@conceptkid.in
+            </a>
+            <Link href="/demo" className="hover:text-slate-950">
+              Demo
+            </Link>
+            <Link href="/register" className="hover:text-slate-950">
+              Register
+            </Link>
+            <Link href="/login" className="hover:text-slate-950">
+              Parent Login
+            </Link>
           </div>
+          <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Pilot access by approval</span>
         </div>
       </footer>
     </main>
